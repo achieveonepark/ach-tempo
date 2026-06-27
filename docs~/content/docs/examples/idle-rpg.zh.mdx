@@ -1,0 +1,44 @@
+---
+title: 放置类RPG
+description: AFK Arena / 蘑菇勇者 —— 为自动进行与回归时刻做节奏编排。
+---
+
+> **为何契合：** 放置类哪怕在玩家不看时也要有起伏，否则不会再打开。
+> 导演塑造一条紧张曲线，为「值得回来看的事件」做节奏。
+
+## 部件对应
+
+| Tempo | 在放置类中 |
+|---|---|
+| `TensionModel` | 会话参与/威胁曲线（平坦＝流失，有起伏＝回归） |
+| `DirectorBrain` 阶段 | 平静(BuildUp) → Boss 出现/突袭猛攻(Peak) → 奖励结算与休息(Relax) |
+| `SeedAction` | `SpawnRaidBoss` · `TriggerGoldRush` · `AmbushEvent` |
+| `WorldReaction` | 资源/生态连锁（矿脉枯竭→价格波动、怪物繁殖→猎场过密）做成规则表 |
+| 预告 | 「Boss 即将出现」通知 = **推送召回** |
+
+## 离线进度，一次性结算
+
+放置类常常不是每帧推进，而是在回归时把「离开的时间」一次结算。把三个 `Tick` 按游戏时间（累计经过）
+以大步长（如 1 分钟 = 1 tick）运行，压缩重放离开期间的阶段变化与事件。导演只塑造起伏（Boss 何时出现），
+真正的战斗计算由你的放置模拟承担。
+
+```csharp
+// 回归时：把离开的时间以大步长压缩重放
+void CatchUp(float secondsAway)
+{
+    const float step = 60f; // 1 分钟 = 1 tick
+    for (float t = 0; t < secondsAway; t += step)
+    {
+        _tension.Tick(playerPos, _world, step);
+        _director.Tick(_world, _tension, playerPos, step); // 编排 Boss/突袭事件
+        _world.Tick(step);
+    }
+    // 把累积的 ActiveEvents 作为「你离开时发生了这些」的报告展示。
+}
+```
+
+## 移动端要点
+
+- **起伏＝留存。** 平坦的自动进行会导致流失；导演用 Boss/猛攻制造回归动机。
+- **预告＝推送。** 把「30 分钟后世界 Boss」预告接到推送通知，召回玩家。
+- **省电。** 回归时压缩重放而非每帧模拟 → 后台负载为零。

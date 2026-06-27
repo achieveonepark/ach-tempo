@@ -1,0 +1,46 @@
+---
+title: 三消解谜
+description: Royal Match / Candy Crush / 梦幻花园 —— 反应规则表 = 特殊方块组合表。
+---
+
+> **为何契合：** `ReactionRule` 表正是「特殊方块相遇会发生什么」的表。
+> 「水浇灭火」只是换成「火箭 + 炸弹 = 大爆炸」，结构完全一样。
+
+## 部件对应
+
+| Tempo | 在三消中 |
+|---|---|
+| `WorldReaction` 网格 | 棋盘（连锁 cascade = 网格蔓延） |
+| `ReactionRule` | 特殊方块组合表：Trigger=特殊方块, Target=周围方块种类, Effect=消除/转化 |
+| `DataService<RuleData>` | 替换表即可新增特殊方块 = **无需改代码的线上运营** |
+| `TensionModel` | 玩家压力（剩余步数、目标进度）→ 难度橡皮筋 |
+| `DirectorBrain` 阶段 | 开局宽松(BuildUp) → 终盘关键(Peak) → 通关后平静(Relax) |
+| `SeedAction` | `DropGoodPiece`（卡住时给好方块）· `AddBlocker`（太简单时加阻碍） |
+
+## 规则表示例
+
+只改要素，它就变成三消组合表。
+
+```csharp
+// “火箭按整行消除周围 3 种方块”
+new ReactionRule {
+    Trigger = ElementTag.Fire,             // = Rocket
+    TargetMaterials = "Red;Blue;Green",    // 周围方块种类（单字段，; 分隔）
+    Effect = StateEffect.Extinguish,       // = Clear
+    Probability = 1f,
+};
+```
+
+`RuleValidator` 会在构建前抓出「不存在的方块种类／相互冲突的规则」，因此运营期扩充规则表也安全。
+
+## 用导演做橡皮筋难度
+
+三消的核心是「险险通关」的手感。导演看紧张度（步数压力）来铺设条件 ——
+卡住时悄悄掉个好方块（`DropGoodPiece`），太简单时加个阻碍。但要 **预告**（下一个方块预览），
+让玩家觉得是「看清后决策」而非「拼运气」。
+
+## 移动端要点
+
+- **规则表即线上内容。** 用 `RuleData` 一行新增活动方块，通过远程数据下发，无需更新应用。
+- **橡皮筋要含蓄。** 太明显会被发现。用 `RiseSpeed`/`FallSpeed` 缓慢调节。
+- **连锁要爽，上限要明确。** 用同时连锁上限避免低端机卡顿。

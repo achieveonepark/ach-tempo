@@ -13,7 +13,7 @@ namespace Achieve.Tempo.Config
     public class RuleData
     {
         [Header("재질 레지스트리 (이름으로 찾고 인덱스로 보관)")]
-        [SerializeField] List<Material> _materials = new List<Material>();
+        [SerializeField] List<MaterialDef> _materials = new List<MaterialDef>();
 
         [Header("반응 규칙표")]
         [SerializeField] List<ReactionRule> _rules = new List<ReactionRule>();
@@ -33,7 +33,7 @@ namespace Achieve.Tempo.Config
         [NonSerialized] Dictionary<string, int> _index;
 
         public IReadOnlyList<ReactionRule> Rules => _rules;
-        public IReadOnlyList<Material> Materials => _materials;
+        public IReadOnlyList<MaterialDef> Materials => _materials;
 
         public RuleData()
         {
@@ -48,15 +48,15 @@ namespace Achieve.Tempo.Config
             if (_index.TryGetValue(name, out int id)) return id;
 
             id = _materials.Count;
-            _materials.Add(new Material(name, 0f, 0f));
+            _materials.Add(new MaterialDef(name, 0f, 0f));
             _index[name] = id;
             return id;
         }
 
-        public Material GetMaterial(int id)
-            => (id >= 0 && id < _materials.Count) ? _materials[id] : Material.Empty;
+        public MaterialDef GetMaterial(int id)
+            => (id >= 0 && id < _materials.Count) ? _materials[id] : MaterialDef.Empty;
 
-        public void AddMaterial(Material material)
+        public void AddMaterial(MaterialDef material)
         {
             EnsureIndex();
             if (_index.ContainsKey(material.Name)) return;
@@ -81,12 +81,12 @@ namespace Achieve.Tempo.Config
             _rules.Clear();
 
             //              이름      탈성  전도  점화온도 어는점 흡수
-            AddMaterial(new Material("Grass", 0.9f, 0.1f, 220f, 0f, 0.7f));
-            AddMaterial(new Material("Wood", 0.6f, 0.0f, 280f, 0f, 0.4f));
-            AddMaterial(new Material("Cloth", 0.8f, 0.1f, 200f, 0f, 0.6f));
-            AddMaterial(new Material("Metal", 0.0f, 1.0f, 1200f, -50f, 0.0f));
-            AddMaterial(new Material("Stone", 0.0f, 0.0f, 1600f, -80f, 0.1f));
-            AddMaterial(new Material("Water", 0.0f, 0.3f, 9999f, 0f, 1.0f));
+            AddMaterial(new MaterialDef("Grass", 0.9f, 0.1f, 220f, 0f, 0.7f));
+            AddMaterial(new MaterialDef("Wood", 0.6f, 0.0f, 280f, 0f, 0.4f));
+            AddMaterial(new MaterialDef("Cloth", 0.8f, 0.1f, 200f, 0f, 0.6f));
+            AddMaterial(new MaterialDef("Metal", 0.0f, 1.0f, 1200f, -50f, 0.0f));
+            AddMaterial(new MaterialDef("Stone", 0.0f, 0.0f, 1600f, -80f, 0.1f));
+            AddMaterial(new MaterialDef("Water", 0.0f, 0.3f, 9999f, 0f, 1.0f));
 
             // ① 요소가 재질을 바꾼다: 불이 마른 풀·나무·천에 붙는다.
             AddRule(new ReactionRule

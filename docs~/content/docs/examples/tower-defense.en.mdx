@@ -1,0 +1,42 @@
+---
+title: Tower defense
+description: Random Dice / defense games — auto-paced waves + status-effect chains.
+---
+
+> **Why it fits:** two things click at once — the director's wave pacing (Left 4 Dead) and freeze/shock
+> chaining through enemy crowds (BotW's electric chain, verbatim).
+
+## Mapping the parts
+
+| Tempo | In a tower defense |
+|---|---|
+| `TensionModel` | Defense-line pressure (leaked enemies, core HP) |
+| `DirectorBrain` phases | Scout (BuildUp) → rush/special mob (Peak) → regroup (Relax) |
+| `SeedAction` | `SeedColdSnap` (freeze field) · `ChargeStorm` (shock chain) · `SpawnRusher` |
+| `WorldReaction` | Status propagation: freeze/shock jumps from an afflicted enemy to neighbors (elemental reaction as-is) |
+| Safeguard caps | Concurrent enemy/projectile cap = mobile frame defense |
+
+## Status chains *are* elemental reactions
+
+BotW's "electricity travels through metal" rule maps straight onto a defense game's "shock chains through
+wet/metal enemy crowds." Just read the `ReactionRule` table as enemy status effects.
+
+```csharp
+// "Shock chains through wet enemies (jumps to neighbors)"
+new ReactionRule {
+    Trigger = ElementTag.Electric,
+    TargetMaterials = "WetEnemy;MetalEnemy",
+    Effect = StateEffect.Discharge,   // fires a chain-shock event
+    Probability = 0.8f,
+};
+```
+
+When the line is too easy (low tension) the director seeds rushes/special mobs to squeeze; when it's
+overwhelmed (high) it gives breathing room. "Elemental combos" — luring a shock onto a freeze field the
+player laid down — fall out of the same table naturally.
+
+## Mobile checkpoints
+
+- **Combos are the feel.** Keep chains like freeze → shock in the rule table to add new combos as data, live.
+- **Wave pacing = the difficulty curve.** The director adjusts pressure without you hand-authoring every stage.
+- **Caps = performance.** A concurrent enemy/projectile cap keeps frames steady even in late-game swarms.

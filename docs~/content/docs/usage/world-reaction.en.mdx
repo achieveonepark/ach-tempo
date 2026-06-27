@@ -23,12 +23,12 @@ public struct ElementalState
 ```
 
 Fixed properties — flammability, conductivity, melting point — aren't stored in the state; they're
-looked up from `Material`.
+looked up from `MaterialDef`.
 
-## Material
+## MaterialDef
 
 ```csharp
-new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+new MaterialDef("Grass", flammability: 0.9f, conductivity: 0.1f,
              ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
 ```
 
@@ -66,7 +66,7 @@ The rule table comes from `DataService<RuleData>.GetDataCenter()`.
 public class WorldReaction
 {
     // what the director reads
-    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+    public IReadOnlyList<ReactionEvent> ActiveEvents { get; }
 
     // entry points where the director seeds conditions
     public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
@@ -79,12 +79,12 @@ public class WorldReaction
 - **How it spreads:** rules are applied on a flat grid (a plain array / `Dictionary`, never a `SortedSet`)
   so fire jumps to neighbor cells. It spreads each frame based on wind direction and how flammable the
   neighbor is.
-- **`ActiveEvents`:** each entry is a `ReactionHandle` (position, magnitude, time-to-live, kind). The
+- **`ActiveEvents`:** each entry is a `ReactionEvent` (position, magnitude, time-to-live, kind). The
   director and tension model watch this list. Finished entries are cleared each frame, and nearby events
   of the same kind merge into one.
 
 ```csharp
-public struct ReactionHandle
+public struct ReactionEvent
 {
     public Vector3    Position;
     public float      Magnitude; // size (used when converting to tension)

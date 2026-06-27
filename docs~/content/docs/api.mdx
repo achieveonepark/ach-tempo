@@ -11,7 +11,7 @@ description: 바깥에 보이는 클래스와 멤버 정리.
 
 | 멤버 | 시그니처 | 설명 |
 |---|---|---|
-| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | 지금 벌어지는 일 목록 |
+| `ActiveEvents` | `IReadOnlyList<ReactionEvent>` | 지금 벌어지는 일 목록 |
 | `BurningCells` | `int` | 지금 불타는 칸 수 |
 | `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | 한 영역에 요소 끼얹기 |
 | `SetWind` | `(Vector2 dir, float strength)` | 바람 설정 |
@@ -22,8 +22,8 @@ description: 바깥에 보이는 클래스와 멤버 정리.
 ### 값 타입
 
 - `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
-- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
-- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionEvent` (struct) — `Position, Magnitude, Ttl, Kind`
+- `MaterialDef` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
 - `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`, `TargetMaterialList`, `MatchesMaterial`, 정적 `Split`
 - `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
 - `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`

@@ -1,6 +1,6 @@
 {
   "name": "com.achieve.tempo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "displayName": "Tempo",
   "description": "디렉터가 조건만 깔면 월드가 받아서 상황을 키우는, 긴장 강약 자동 조절 시스템. (Left 4 Dead 식 자동 강약 조절 + Zelda BotW 식 요소 반응)",
   "unity": "2022.3",

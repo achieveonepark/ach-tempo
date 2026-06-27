@@ -11,7 +11,7 @@ description: 对外可见的类与成员一览。
 
 | 成员 | 签名 | 说明 |
 |---|---|---|
-| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | 当前事件列表 |
+| `ActiveEvents` | `IReadOnlyList<ReactionEvent>` | 当前事件列表 |
 | `BurningCells` | `int` | 当前燃烧的格子数 |
 | `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | 向区域铺设要素 |
 | `SetWind` | `(Vector2 dir, float strength)` | 设置风 |
@@ -22,8 +22,8 @@ description: 对外可见的类与成员一览。
 ### 值类型
 
 - `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
-- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
-- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionEvent` (struct) — `Position, Magnitude, Ttl, Kind`
+- `MaterialDef` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
 - `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`、`TargetMaterialList`、`MatchesMaterial`、静态 `Split`
 - `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
 - `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`

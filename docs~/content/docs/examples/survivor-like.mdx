@@ -1,0 +1,50 @@
+---
+title: 서바이버라이크
+description: 뱀서라이크(Vampire Survivors·Survivor.io·Archero) — AI 디렉터로 웨이브 강약을 자동 조절.
+---
+
+> **왜 잘 맞나:** 이 장르는 사실상 Left 4 Dead 의 'AI 디렉터'를 그대로 쓰는 곳입니다. Tempo 의
+> 긴장도 → 디렉터 → 월드 한 바퀴가 곧 '몰아치기 ↔ 숨 돌리기' 리듬입니다.
+
+## 부품 매핑
+
+| Tempo | 서바이버라이크에서 |
+|---|---|
+| `TensionModel.Current` | 적 스폰 밀도·난이도 게이지 |
+| `SampleThreat` | 화면 안 적 수 + 보스 근접도 |
+| `SampleAround` | 바닥 장판(독·불·전기장) 위험도 |
+| `DirectorBrain` 국면 | 소강(BuildUp) → 러시/엘리트(Peak) → 숨 돌리기(Relax) |
+| `SeedAction` | `SpawnSwarm` · `SpawnElite` · `OpenHazardZone` · `DropHealing` |
+| `WorldReaction` | 불바다·독구름 장판이 격자로 번짐(기본 기능 그대로) |
+| 안전장치 상한 | 동시 적/장판 수 상한 = **모바일 발열·배터리·프레임 방어** |
+
+## 흐름
+
+쌓기에선 적을 줄이고 회복/아이템을 흘려 한숨 돌리게 하고, 긴장도가 낮게 깔리면 곧 러시가 옵니다.
+터짐에선 엘리트 웨이브 + 바닥 장판을 동시에 깔아 화면을 조입니다. 단, **전조**(웨이브 경고 링,
+땅이 붉게 달아오름)를 반드시 먼저 보여줘야 '갑자기 죽었다' 가 안 됩니다.
+
+```csharp
+public sealed class SurvivorDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _actions;
+    protected override int MaxActiveEvents => 60; // 모바일: 동시 위험 상한으로 발열 방어
+
+    // 화면 안 적 수와 보스 근접으로 위협을 만든다.
+    public sealed class WaveTension : TensionModel
+    {
+        public int OnScreenEnemies; public float BossProximity;
+        protected override float SampleThreat(Vector3 p)
+            => Mathf.Clamp01(OnScreenEnemies / 40f) * 0.7f + BossProximity * 0.3f;
+    }
+}
+```
+
+`SpawnSwarm`/`SpawnElite` 는 적을 직접 만드는 게 아니라 **스폰 조건**(스폰 게이트 열기)을 깔고,
+실제 풀링·배치는 게임의 스폰 시스템이 받습니다. 디렉터는 '언제·얼마나' 만 정합니다.
+
+## 모바일 체크포인트
+
+- **상한이 곧 성능 예산.** `MaxActiveEvents`·동시 적 수로 저사양 기기 프레임을 지킵니다.
+- **세션이 짧다.** 국면 주기를 1~2분대로 짧게 잡아 한 판 안에 쌓기→터짐→쉬기가 여러 번 돌게.
+- **전조는 크게.** 작은 화면에선 경고가 묻히기 쉬우니 링·화면 가장자리 붉힘으로 분명히.

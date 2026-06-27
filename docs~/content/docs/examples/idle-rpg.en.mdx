@@ -1,0 +1,45 @@
+---
+title: Idle RPG
+description: AFK Arena / Legend of Mushroom — pacing auto-progress and the return moment.
+---
+
+> **Why it fits:** an idle game needs ups and downs even while the player isn't looking, or they don't
+> reopen it. The director shapes a tension curve to pace "events worth coming back for."
+
+## Mapping the parts
+
+| Tempo | In an idle RPG |
+|---|---|
+| `TensionModel` | Session engagement / threat curve (flat = churn, ups and downs = return) |
+| `DirectorBrain` phases | Calm (BuildUp) → boss appears / ambush rush (Peak) → reward tally & rest (Relax) |
+| `SeedAction` | `SpawnRaidBoss` · `TriggerGoldRush` · `AmbushEvent` |
+| `WorldReaction` | Resource/ecology chains (vein depletes → price shifts; monsters breed → field crowds) as a rule table |
+| Telegraph | A "boss incoming" notice = **push-notification re-engagement** |
+
+## Offline progress, settled in one pass
+
+Idle games often don't tick every frame; they settle the "time away" in one pass on return. Run the three
+`Tick`s over game time (accumulated elapsed) in big steps (e.g. 1 minute = 1 tick) to replay the phase
+shifts and events that happened while away, compressed. The director only shapes the ups and downs (when a
+boss showed up); the actual combat math is handled by your idle simulation.
+
+```csharp
+// On return: replay the time away, compressed, in big steps
+void CatchUp(float secondsAway)
+{
+    const float step = 60f; // 1 minute = 1 tick
+    for (float t = 0; t < secondsAway; t += step)
+    {
+        _tension.Tick(playerPos, _world, step);
+        _director.Tick(_world, _tension, playerPos, step); // paces boss/ambush events
+        _world.Tick(step);
+    }
+    // Show accumulated ActiveEvents as a "here's what happened while you were gone" report.
+}
+```
+
+## Mobile checkpoints
+
+- **Ups and downs = retention.** Flat auto-progress drives churn; the director creates a reason to return with bosses/rushes.
+- **Telegraph = push.** Wire a "raid boss in 30 minutes" notice to a push notification to pull players back.
+- **Battery-safe.** Replay-on-return instead of per-frame simulation → zero background load.

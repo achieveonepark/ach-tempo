@@ -6,13 +6,13 @@ description: Notable changes by version.
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 [Semantic Versioning](https://semver.org/).
 
-## 0.1.0 — 2026-06-27
+## 1.0.0 — 2026-06-27
 
 ### Added
 
 - **World reaction** (`Achieve.Tempo.World`): `WorldReaction` spreading fire/water/ice/electricity by
-  rules on a flat grid, per-cell `ElementalState`, `Material`, table-driven `ReactionRule`
-  (single-field `;` input), and the live-event `ReactionHandle`.
+  rules on a flat grid, per-cell `ElementalState`, `MaterialDef`, table-driven `ReactionRule`
+  (single-field `;` input), and the live-event `ReactionEvent`.
 - **Director** (`Achieve.Tempo.Director`): `DirectorBrain` with a default policy extended via `virtual`,
   the `SeedAction` seeding action plus four built-ins (`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`),
   and `PhaseFsm` phase switching (hysteresis).

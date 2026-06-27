@@ -78,7 +78,7 @@ namespace Achieve.Tempo.Tension
             var events = world.ActiveEvents;
             for (int i = 0; i < events.Count; i++)
             {
-                ReactionHandle r = events[i];
+                ReactionEvent r = events[i];
                 float d = Vector3.Distance(p, r.Position);
                 if (d > cfg.AroundRadius) continue;
                 load += r.Magnitude * (1f - d / cfg.AroundRadius); // 크기 × 가까운 정도

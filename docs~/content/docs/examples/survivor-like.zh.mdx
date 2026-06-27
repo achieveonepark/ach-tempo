@@ -1,0 +1,50 @@
+---
+title: 幸存者类
+description: Vampire Survivors / Survivor.io / 弓箭传说 —— 用 AI 导演自动调节波次强弱。
+---
+
+> **为何契合：** 这个品类本质上就是求生之路的「AI 导演」换了个名字。Tempo 的
+> 紧张度 → 导演 → 世界 一轮循环，正是「猛攻 ↔ 喘息」的节奏。
+
+## 部件对应
+
+| Tempo | 在幸存者类中 |
+|---|---|
+| `TensionModel.Current` | 敌人刷新密度／难度量表 |
+| `SampleThreat` | 屏幕内敌人数 + Boss 接近度 |
+| `SampleAround` | 地面场（毒/火/电场）的危险度 |
+| `DirectorBrain` 阶段 | 平静(BuildUp) → 猛攻/精英(Peak) → 喘息(Relax) |
+| `SeedAction` | `SpawnSwarm` · `SpawnElite` · `OpenHazardZone` · `DropHealing` |
+| `WorldReaction` | 火海/毒云在网格上蔓延（沿用标准功能） |
+| 安全上限 | 同时敌人/场的上限 = **移动端发热／电量／帧率防护** |
+
+## 流程
+
+蓄势阶段削减敌人、放出回血/道具让玩家喘息；紧张度回落到低位时，猛攻就快来了。
+爆发阶段同时放出精英波次＋地面场来压缩画面。但 **必须先预告**（波次警告环、地面泛红），
+才不会变成「莫名其妙就死了」。
+
+```csharp
+public sealed class SurvivorDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _actions;
+    protected override int MaxActiveEvents => 60; // 移动端：用同时危险上限抑制发热
+
+    // 用屏幕内敌人数与 Boss 接近度构造威胁。
+    public sealed class WaveTension : TensionModel
+    {
+        public int OnScreenEnemies; public float BossProximity;
+        protected override float SampleThreat(Vector3 p)
+            => Mathf.Clamp01(OnScreenEnemies / 40f) * 0.7f + BossProximity * 0.3f;
+    }
+}
+```
+
+`SpawnSwarm`/`SpawnElite` 不直接生成敌人，而是铺设 **刷新条件**（打开刷新闸门）；
+实际的对象池/摆放由你游戏的刷新系统接手。导演只决定「何时、多少」。
+
+## 移动端要点
+
+- **上限就是性能预算。** `MaxActiveEvents` 与同屏敌人上限保护低端机帧率。
+- **会话很短。** 把阶段周期控制在 1~2 分钟，让一局内蓄势→爆发→喘息循环多次。
+- **预告要大。** 小屏上警告容易被淹没，用光环／屏幕边缘泛红明确提示。

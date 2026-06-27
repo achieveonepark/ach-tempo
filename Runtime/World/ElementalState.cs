@@ -2,7 +2,7 @@ namespace Achieve.Tempo.World
 {
     /// <summary>
     /// 칸(또는 물체) 하나의 '지금 상태'. 격자에서 많이 처리하니 가벼운 struct 로 둔다.
-    /// 변하지 않는 성질(잘 타는지 등)은 여기 적지 않고 <see cref="Material"/> 에서 찾는다.
+    /// 변하지 않는 성질(잘 타는지 등)은 여기 적지 않고 <see cref="MaterialDef"/> 에서 찾는다.
     /// </summary>
     public struct ElementalState
     {

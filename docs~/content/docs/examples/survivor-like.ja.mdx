@@ -1,0 +1,50 @@
+---
+title: サバイバー系
+description: Vampire Survivors / Survivor.io / Archero — AI ディレクターでウェーブの強弱を自動調整。
+---
+
+> **なぜ合うか:** このジャンルは実質 Left 4 Dead の「AI ディレクター」そのものです。Tempo の
+> 緊張度 → ディレクター → ワールドのひと回りが、まさに「畳みかけ ↔ 一息」のリズムになります。
+
+## 部品の対応
+
+| Tempo | サバイバー系では |
+|---|---|
+| `TensionModel.Current` | 敵スポーン密度・難易度ゲージ |
+| `SampleThreat` | 画面内の敵数 + ボス接近度 |
+| `SampleAround` | 床の地形効果（毒・炎・電場）の危険度 |
+| `DirectorBrain` の局面 | 小康(BuildUp) → ラッシュ/エリート(Peak) → 一息(Relax) |
+| `SeedAction` | `SpawnSwarm` · `SpawnElite` · `OpenHazardZone` · `DropHealing` |
+| `WorldReaction` | 火の海・毒雲が格子で広がる（標準機能のまま） |
+| 安全装置の上限 | 同時の敵/地形効果の上限 = **モバイルの発熱・電池・フレーム防御** |
+
+## 流れ
+
+蓄積では敵を減らし回復/アイテムを流して一息つかせます。緊張度が低く落ち着いたら、まもなくラッシュ。
+爆発ではエリートウェーブ＋床の地形効果を同時に撒いて画面を締めます。ただし **前兆**（ウェーブ警告リング、
+地面が赤く灯る）を必ず先に見せ、「理不尽な死」にならないようにします。
+
+```csharp
+public sealed class SurvivorDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _actions;
+    protected override int MaxActiveEvents => 60; // モバイル: 同時危険の上限で発熱を抑える
+
+    // 画面内の敵数とボス接近で脅威を作る。
+    public sealed class WaveTension : TensionModel
+    {
+        public int OnScreenEnemies; public float BossProximity;
+        protected override float SampleThreat(Vector3 p)
+            => Mathf.Clamp01(OnScreenEnemies / 40f) * 0.7f + BossProximity * 0.3f;
+    }
+}
+```
+
+`SpawnSwarm`/`SpawnElite` は敵を直接出すのではなく **スポーン条件**（スポーンゲートを開く）を撒き、
+実際のプーリング/配置はゲームのスポーンシステムが受けます。ディレクターは「いつ・どれだけ」だけを決めます。
+
+## モバイルのチェックポイント
+
+- **上限がそのまま性能予算。** `MaxActiveEvents` と同時敵数の上限で低スペック端末のフレームを守る。
+- **セッションが短い。** 局面サイクルを1〜2分にして、1プレイ内で蓄積→爆発→休息が何度も回るように。
+- **前兆は大きく。** 小さな画面では警告が埋もれるので、リングや画面端の赤化ではっきりと。

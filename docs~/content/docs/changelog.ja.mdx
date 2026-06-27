@@ -6,13 +6,13 @@ description: バージョンごとの主な変更点。
 形式は [Keep a Changelog](https://keepachangelog.com/ja/1.0.0/)、バージョンは
 [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 
-## 0.1.0 — 2026-06-27
+## 1.0.0 — 2026-06-27
 
 ### 追加
 
 - **ワールドリアクション** (`Achieve.Tempo.World`): 平面格子で火・水・氷・電気がルール通り延焼する
-  `WorldReaction`、1マスの状態 `ElementalState`、素材 `Material`、表で持つ反応ルール
-  `ReactionRule`（`;` 区切りの1欄入力）、いま起きている事象 `ReactionHandle`。
+  `WorldReaction`、1マスの状態 `ElementalState`、素材 `MaterialDef`、表で持つ反応ルール
+  `ReactionRule`（`;` 区切りの1欄入力）、いま起きている事象 `ReactionEvent`。
 - **ディレクター** (`Achieve.Tempo.Director`): 既定方針を持ち virtual で拡張する `DirectorBrain`、
   条件撒きアクション `SeedAction` と標準4種（`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`）、
   局面遷移 `PhaseFsm`（ヒステリシス）。

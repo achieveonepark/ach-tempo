@@ -21,12 +21,12 @@ public struct ElementalState
 }
 ```
 
-「是否易燃、是否导电、何时融化」这类 **不变的性质** 不写进状态，而是从 `Material` 中查。
+「是否易燃、是否导电、何时融化」这类 **不变的性质** 不写进状态，而是从 `MaterialDef` 中查。
 
-## 材质 — `Material`
+## 材质 — `MaterialDef`
 
 ```csharp
-new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+new MaterialDef("Grass", flammability: 0.9f, conductivity: 0.1f,
              ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
 ```
 
@@ -63,7 +63,7 @@ public sealed class ReactionRule
 public class WorldReaction
 {
     // 导演读取的部分
-    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+    public IReadOnlyList<ReactionEvent> ActiveEvents { get; }
 
     // 导演铺设条件的入口
     public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
@@ -75,11 +75,11 @@ public class WorldReaction
 
 - **蔓延方式：** 在扁平网格（用平面数组／`Dictionary`，绝不用 `SortedSet`）上应用规则，让火向邻格
   延烧。每帧依据风向与邻格的易燃程度蔓延。
-- **`ActiveEvents`：** 每一项是 `ReactionHandle`（位置、大小、剩余时间、种类）。导演与紧张度模型查看
+- **`ActiveEvents`：** 每一项是 `ReactionEvent`（位置、大小、剩余时间、种类）。导演与紧张度模型查看
   此列表。结束的项每帧清理，邻近的同类合并为一项。
 
 ```csharp
-public struct ReactionHandle
+public struct ReactionEvent
 {
     public Vector3    Position;
     public float      Magnitude; // 大小（换算成紧张度时使用）

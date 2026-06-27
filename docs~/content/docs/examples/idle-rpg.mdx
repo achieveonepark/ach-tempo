@@ -1,0 +1,45 @@
+---
+title: 방치형 RPG
+description: AFK Arena·버섯커 키우기·Legend of Mushroom — 자동 진행/복귀 페이싱.
+---
+
+> **왜 잘 맞나:** 방치형은 '플레이어가 안 보는 동안'에도 굴곡이 있어야 다시 켭니다.
+> 디렉터가 긴장 곡선을 만들어 '돌아올 만한 사건'을 페이싱합니다.
+
+## 부품 매핑
+
+| Tempo | 방치형에서 |
+|---|---|
+| `TensionModel` | 세션 참여도/위협 곡선 (평탄하면 이탈, 굴곡이 있어야 복귀) |
+| `DirectorBrain` 국면 | 평온(BuildUp) → 보스 출현/습격 러시(Peak) → 보상 정산·휴식(Relax) |
+| `SeedAction` | `SpawnRaidBoss` · `TriggerGoldRush` · `AmbushEvent` |
+| `WorldReaction` | 자원·생태 연쇄(광맥 고갈 → 가격 변동, 몬스터 번식 → 사냥터 과밀)를 규칙표로 |
+| 전조 | '곧 보스 출현' 알림 = **푸시 알림 복귀 유도** |
+
+## 오프라인 진행과 한 번에 정산
+
+방치형은 매 프레임 도는 대신, 복귀 시 '비운 시간' 을 한 번에 정산하는 경우가 많습니다.
+세 `Tick` 을 게임 시간(누적 경과)으로 큰 보폭(예: 1분 = 1틱)으로 돌려, 비운 동안의 국면 변화와
+사건을 압축 재생하면 됩니다. 디렉터는 '언제 보스가 나왔는지' 같은 굴곡만 만들고, 실제 전투 계산은
+방치형 시뮬레이션이 받습니다.
+
+```csharp
+// 복귀 시: 비운 시간을 큰 보폭으로 압축 재생
+void CatchUp(float secondsAway)
+{
+    const float step = 60f; // 1분 = 1틱
+    for (float t = 0; t < secondsAway; t += step)
+    {
+        _tension.Tick(playerPos, _world, step);
+        _director.Tick(_world, _tension, playerPos, step); // 보스/습격 사건 페이싱
+        _world.Tick(step);
+    }
+    // 누적된 ActiveEvents 를 '없는 동안 이런 일이 있었어요' 리포트로 보여준다.
+}
+```
+
+## 모바일 체크포인트
+
+- **굴곡 = 리텐션.** 평탄한 자동 진행은 이탈을 부릅니다. 디렉터가 보스/러시로 복귀 동기를 만듭니다.
+- **전조 = 푸시.** '30분 뒤 레이드 보스' 같은 예고를 푸시로 연결해 복귀를 유도합니다.
+- **배터리 안전.** 매 프레임 시뮬 대신 복귀 시 압축 재생 → 백그라운드 부하 0.

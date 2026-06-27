@@ -1,0 +1,47 @@
+---
+title: Match-3 puzzle
+description: Royal Match / Candy Crush / Gardenscapes — the reaction rule table IS the special-tile combo table.
+---
+
+> **Why it fits:** the `ReactionRule` table is exactly the "what happens when special tiles meet" table.
+> "Water quenches fire" just becomes "rocket + bomb = mega-blast" — same structure.
+
+## Mapping the parts
+
+| Tempo | In a match-3 |
+|---|---|
+| `WorldReaction` grid | The puzzle board (cascade = grid spread) |
+| `ReactionRule` | Special-tile combo table: Trigger=special tile, Target=neighbor tile kinds, Effect=clear/convert |
+| `DataService<RuleData>` | Swap the table to add new special tiles = **live-ops without a code change** |
+| `TensionModel` | Player pressure (moves left, objective progress) → difficulty rubber-banding |
+| `DirectorBrain` phases | Easy start (BuildUp) → endgame clutch (Peak) → calm after clear (Relax) |
+| `SeedAction` | `DropGoodPiece` (a nudge when stuck) · `AddBlocker` (when too easy) |
+
+## Rule-table example
+
+Change only the element and it becomes a match-3 combo table.
+
+```csharp
+// "A rocket clears nearby tiles of 3 kinds, in a line"
+new ReactionRule {
+    Trigger = ElementTag.Fire,             // = Rocket
+    TargetMaterials = "Red;Blue;Green",    // neighbor tile kinds (one field, ;-separated)
+    Effect = StateEffect.Extinguish,       // = Clear
+    Probability = 1f,
+};
+```
+
+`RuleValidator` catches "unknown tile kind / conflicting rules" before the build, so growing the table
+during live-ops stays safe.
+
+## Rubber-banding with the director
+
+The heart of match-3 is the "barely cleared it" feeling. The director watches tension (move-count
+pressure) and seeds conditions — drop a good piece when stuck (`DropGoodPiece`), add a blocker when it's
+too easy. But **telegraph** (the next-piece preview) so it reads as "see and decide," not "luck."
+
+## Mobile checkpoints
+
+- **The table is live content.** Add a new event tile as one `RuleData` row, ship it via remote data with no app update.
+- **Rubber-band subtly.** Too blatant and players notice. Ease it with `RiseSpeed`/`FallSpeed`.
+- **Cascades thrilling, caps clear.** A concurrent-cascade cap prevents stutter on low-end devices.

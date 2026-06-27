@@ -6,13 +6,13 @@ description: 버전별 주요 변경 사항.
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/), 버전은
 [Semantic Versioning](https://semver.org/lang/ko/) 을 따릅니다.
 
-## 0.1.0 — 2026-06-27
+## 1.0.0 — 2026-06-27
 
 ### 추가
 
 - **월드 반응** (`Achieve.Tempo.World`): 평면 격자에서 불·물·얼음·전기가 규칙대로 번지는
-  `WorldReaction`, 한 칸 상태 `ElementalState`, 재질 `Material`, 표로 두는 반응 규칙
-  `ReactionRule`(`;` 구분자 한 칸 입력), 지금 벌어지는 일 `ReactionHandle`.
+  `WorldReaction`, 한 칸 상태 `ElementalState`, 재질 `MaterialDef`, 표로 두는 반응 규칙
+  `ReactionRule`(`;` 구분자 한 칸 입력), 지금 벌어지는 일 `ReactionEvent`.
 - **디렉터** (`Achieve.Tempo.Director`): 기본 정책을 깔고 virtual 로 확장하는 `DirectorBrain`,
   조건 깔기 동작 `SeedAction` 과 기본 4종(`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`),
   국면 전환 `PhaseFsm`(히스테리시스).

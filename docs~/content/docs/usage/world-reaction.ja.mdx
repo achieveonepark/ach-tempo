@@ -22,12 +22,12 @@ public struct ElementalState
 }
 ```
 
-「燃えやすさ・通電性・融点」のような **変わらない性質** は状態に書かず、`Material` から引きます。
+「燃えやすさ・通電性・融点」のような **変わらない性質** は状態に書かず、`MaterialDef` から引きます。
 
-## 素材 — `Material`
+## 素材 — `MaterialDef`
 
 ```csharp
-new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+new MaterialDef("Grass", flammability: 0.9f, conductivity: 0.1f,
              ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
 ```
 
@@ -65,7 +65,7 @@ public sealed class ReactionRule
 public class WorldReaction
 {
     // ディレクターが読む部分
-    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+    public IReadOnlyList<ReactionEvent> ActiveEvents { get; }
 
     // ディレクターが条件を撒く入口
     public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
@@ -77,11 +77,11 @@ public class WorldReaction
 
 - **広がり方:** 平らな格子（`SortedSet` ではなく平面配列・`Dictionary`）でルールを適用し、隣のマスへ
   燃え移らせます。風向き＋隣の燃えやすさに応じて毎フレーム広がります。
-- **`ActiveEvents`:** 1件が `ReactionHandle`（位置・大きさ・残り時間・種類）です。ディレクターと緊張度
+- **`ActiveEvents`:** 1件が `ReactionEvent`（位置・大きさ・残り時間・種類）です。ディレクターと緊張度
   モデルがこの一覧を見ます。終わった件は毎フレーム片付け、近くの同種は1件にまとめます。
 
 ```csharp
-public struct ReactionHandle
+public struct ReactionEvent
 {
     public Vector3    Position;
     public float      Magnitude; // 大きさ（緊張度へ換算する際に使う）

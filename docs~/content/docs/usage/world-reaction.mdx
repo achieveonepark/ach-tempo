@@ -23,12 +23,12 @@ public struct ElementalState
 ```
 
 '잘 타는지·전기가 통하는지·언제 녹는지' 같은 **변하지 않는 성질**은 상태에 적지 않고
-`Material` 에서 찾아봅니다.
+`MaterialDef` 에서 찾아봅니다.
 
-## 재질 — `Material`
+## 재질 — `MaterialDef`
 
 ```csharp
-new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+new MaterialDef("Grass", flammability: 0.9f, conductivity: 0.1f,
              ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
 ```
 
@@ -66,7 +66,7 @@ public sealed class ReactionRule
 public class WorldReaction
 {
     // 디렉터가 읽는 부분
-    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+    public IReadOnlyList<ReactionEvent> ActiveEvents { get; }
 
     // 디렉터가 조건을 까는 입구
     public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
@@ -78,11 +78,11 @@ public class WorldReaction
 
 - **번지는 방식:** 평평한 격자(`SortedSet` 대신 평면 배열·`Dictionary`)에서 규칙을 적용해 옆 칸으로
   옮겨붙게 합니다. 바람 방향 + 옆 칸이 잘 타는지에 따라 매 프레임 번집니다.
-- **`ActiveEvents`:** 한 건이 `ReactionHandle`(위치·크기·남은 시간·종류)입니다. 디렉터와 긴장도
+- **`ActiveEvents`:** 한 건이 `ReactionEvent`(위치·크기·남은 시간·종류)입니다. 디렉터와 긴장도
   계산기가 이 목록을 봅니다. 끝난 건은 매 프레임 치우고, 가까운 같은 종류는 한 건으로 합칩니다.
 
 ```csharp
-public struct ReactionHandle
+public struct ReactionEvent
 {
     public Vector3    Position;
     public float      Magnitude; // 크기 (긴장도로 환산할 때 씀)

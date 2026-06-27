@@ -21,7 +21,7 @@ namespace Achieve.Tempo.World
         readonly Vector3 _origin;
         readonly ElementalState[] _cells;
 
-        readonly List<ReactionHandle> _events = new List<ReactionHandle>(64);
+        readonly List<ReactionEvent> _events = new List<ReactionEvent>(64);
 
         RuleData _ruleOverride;
         Vector2 _wind = Vector2.zero;
@@ -30,7 +30,7 @@ namespace Achieve.Tempo.World
         System.Random _rng;
 
         /// <summary>디렉터·긴장도 계산기가 읽는 '지금 벌어지는 일' 목록.</summary>
-        public IReadOnlyList<ReactionHandle> ActiveEvents => _events;
+        public IReadOnlyList<ReactionEvent> ActiveEvents => _events;
 
         public int Width => _width;
         public int Height => _height;
@@ -105,7 +105,7 @@ namespace Achieve.Tempo.World
         void ApplyElementToCell(int idx, ElementTag element, float power)
         {
             ref ElementalState c = ref _cells[idx];
-            Material mat = Rules.GetMaterial(c.MaterialId);
+            MaterialDef mat = Rules.GetMaterial(c.MaterialId);
 
             switch (element)
             {
@@ -156,7 +156,7 @@ namespace Achieve.Tempo.World
             // 2) 벌어지는 일 목록: 시간 깎고 끝난 건 치운다.
             for (int i = _events.Count - 1; i >= 0; i--)
             {
-                ReactionHandle h = _events[i];
+                ReactionEvent h = _events[i];
                 h.Ttl -= dt;
                 if (h.IsAlive) _events[i] = h;
                 else _events.RemoveAt(i);
@@ -166,7 +166,7 @@ namespace Achieve.Tempo.World
         void StepCell(int idx, int x, int y, float dt)
         {
             ref ElementalState c = ref _cells[idx];
-            Material mat = Rules.GetMaterial(c.MaterialId);
+            MaterialDef mat = Rules.GetMaterial(c.MaterialId);
 
             // 젖은 칸은 서서히 마른다. 불타는 칸은 더 빨리 마르고 뜨거워진다.
             c.Wetness = Mathf.Clamp01(c.Wetness - Rules.DryRate * dt * (c.OnFire ? 4f : 1f));
@@ -211,7 +211,7 @@ namespace Achieve.Tempo.World
                 ref ElementalState n = ref _cells[nIdx];
                 if (n.OnFire) continue;
 
-                Material nMat = Rules.GetMaterial(n.MaterialId);
+                MaterialDef nMat = Rules.GetMaterial(n.MaterialId);
                 if (!nMat.CanBurn || n.Wetness >= 0.5f) continue;
 
                 // 바람이 부는 쪽일수록 더 잘 번진다.
@@ -245,7 +245,7 @@ namespace Achieve.Tempo.World
         void ApplyRules(int idx, ElementTag trigger)
         {
             ref ElementalState c = ref _cells[idx];
-            Material mat = Rules.GetMaterial(c.MaterialId);
+            MaterialDef mat = Rules.GetMaterial(c.MaterialId);
             IReadOnlyList<ReactionRule> rules = Rules.Rules;
 
             for (int i = 0; i < rules.Count; i++)
@@ -298,14 +298,14 @@ namespace Achieve.Tempo.World
                 if (_events[i].Kind != kind) continue;
                 if ((_events[i].Position - pos).sqrMagnitude > mergeDist * mergeDist) continue;
 
-                ReactionHandle merged = _events[i];
+                ReactionEvent merged = _events[i];
                 merged.Magnitude = Mathf.Max(merged.Magnitude, magnitude);
                 merged.Ttl = Mathf.Max(merged.Ttl, Rules.EventTtl);
                 _events[i] = merged;
                 return;
             }
 
-            _events.Add(new ReactionHandle
+            _events.Add(new ReactionEvent
             {
                 Position = pos,
                 Magnitude = magnitude,

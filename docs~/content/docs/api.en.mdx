@@ -11,7 +11,7 @@ A game typically subclasses `DirectorBrain`, swaps the action list, and calls th
 
 | Member | Signature | Description |
 |---|---|---|
-| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | List of live events |
+| `ActiveEvents` | `IReadOnlyList<ReactionEvent>` | List of live events |
 | `BurningCells` | `int` | Currently burning cell count |
 | `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | Stamp an element over an area |
 | `SetWind` | `(Vector2 dir, float strength)` | Set the wind |
@@ -22,8 +22,8 @@ A game typically subclasses `DirectorBrain`, swaps the action list, and calls th
 ### Value types
 
 - `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
-- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
-- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionEvent` (struct) — `Position, Magnitude, Ttl, Kind`
+- `MaterialDef` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
 - `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`, `TargetMaterialList`, `MatchesMaterial`, static `Split`
 - `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
 - `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`

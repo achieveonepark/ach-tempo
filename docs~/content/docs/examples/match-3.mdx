@@ -1,0 +1,46 @@
+---
+title: 매치-3 퍼즐
+description: Royal Match·Candy Crush·Gardenscapes — 반응 규칙표 = 특수블록 조합 규칙.
+---
+
+> **왜 잘 맞나:** `ReactionRule` 표가 곧 '특수블록이 만나면 무슨 일이 나는가' 표입니다.
+> "물이 불을 끈다" 가 "로켓 + 폭탄 = 대폭발" 로 바뀔 뿐, 구조는 똑같습니다.
+
+## 부품 매핑
+
+| Tempo | 매치-3 에서 |
+|---|---|
+| `WorldReaction` 격자 | 퍼즐 보드 (연쇄 cascade = 격자 번짐) |
+| `ReactionRule` | 특수블록 조합 표: Trigger=특수블록, Target=주변 블록 종류, Effect=제거/변환 |
+| `DataService<RuleData>` | 표만 갈아끼우면 새 특수블록 추가 = **코드 수정 없이 라이브 운영** |
+| `TensionModel` | 플레이어 압박(남은 무브·목표 진척)으로 난이도 고무줄 |
+| `DirectorBrain` 국면 | 초반 여유(BuildUp) → 막판 클러치(Peak) → 클리어 후 진정(Relax) |
+| `SeedAction` | `DropGoodPiece`(막히면 좋은 블록) · `AddBlocker`(너무 쉬우면 방해물) |
+
+## 규칙표 예시
+
+요소만 바꾸면 매치-3 조합표가 됩니다.
+
+```csharp
+// "로켓이 주변 3종 블록을 줄 단위로 제거"
+new ReactionRule {
+    Trigger = ElementTag.Fire,             // = Rocket
+    TargetMaterials = "Red;Blue;Green",    // 주변 블록 종류 (한 칸에 ; 로)
+    Effect = StateEffect.Extinguish,       // = Clear
+    Probability = 1f,
+};
+```
+
+`RuleValidator` 가 빌드 전에 '없는 블록 종류·서로 어긋나는 규칙' 을 잡아줘, 운영 중 표를 늘려도 안전합니다.
+
+## 디렉터로 난이도 고무줄
+
+매치-3 의 핵심은 '아슬아슬하게 클리어시키는' 감각입니다. 디렉터가 긴장도(남은 무브 압박)를 보고
+조건을 깝니다 — 막히면 좋은 블록을 슬쩍 떨어뜨리고(`DropGoodPiece`), 너무 쉬우면 방해물을 더합니다.
+단, **전조**(다음에 떨어질 블록 미리보기)는 보여줘 '운빨' 이 아니라 '읽고 판단' 으로 느끼게 합니다.
+
+## 모바일 체크포인트
+
+- **표 = 라이브 콘텐츠.** 새 이벤트 블록을 `RuleData` 한 줄로 추가, 앱 업데이트 없이 원격 데이터로 배포.
+- **고무줄은 미세하게.** 너무 노골적이면 들킵니다. `RiseSpeed`/`FallSpeed` 로 천천히.
+- **연쇄는 짜릿하게, 상한은 분명히.** 동시 연쇄 상한으로 저사양 기기 끊김을 막습니다.

@@ -4,12 +4,13 @@ using UnityEngine;
 namespace Achieve.Tempo.World
 {
     /// <summary>
-    /// 재질(잘 타는지·전기 통하는지·언제 녹는지 같은 '변하지 않는 성질').
+    /// 재질 정의(잘 타는지·전기 통하는지·언제 녹는지 같은 '변하지 않는 성질').
     /// 한 칸의 그때그때 상태는 <see cref="ElementalState"/> 에 두고, 고정 성질은 여기서 찾아본다.
     /// 같은 이름의 재질은 <see cref="RuleData"/> 의 레지스트리에 한 번만 등록해두고 공유한다.
+    /// 이름은 UnityEngine.Material 과 헷갈리지 않도록 MaterialDef 로 둔다.
     /// </summary>
     [Serializable]
-    public sealed class Material
+    public sealed class MaterialDef
     {
         [SerializeField] string _name = "Unknown";
 
@@ -30,9 +31,9 @@ namespace Achieve.Tempo.World
 
         public string Name => _name;
 
-        public Material() { }
+        public MaterialDef() { }
 
-        public Material(string name, float flammability, float conductivity,
+        public MaterialDef(string name, float flammability, float conductivity,
             float ignitionPoint = 250f, float freezePoint = 0f, float waterAbsorption = 0.5f)
         {
             _name = name;
@@ -47,6 +48,6 @@ namespace Achieve.Tempo.World
         public bool CanConduct => Conductivity > 0f;
 
         /// <summary>아무 성질도 없는 '빈' 재질. 격자의 기본값으로 쓴다.</summary>
-        public static readonly Material Empty = new Material("Empty", 0f, 0f, float.MaxValue, float.MinValue, 0f);
+        public static readonly MaterialDef Empty = new MaterialDef("Empty", 0f, 0f, float.MaxValue, float.MinValue, 0f);
     }
 }

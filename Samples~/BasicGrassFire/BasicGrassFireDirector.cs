@@ -83,7 +83,7 @@ namespace Achieve.Tempo.Samples
             }
 
             Gizmos.color = new Color(1f, 0.9f, 0.2f, 0.4f);
-            foreach (ReactionHandle h in _world.ActiveEvents)
+            foreach (ReactionEvent h in _world.ActiveEvents)
                 Gizmos.DrawWireSphere(h.Position, _cellSize * h.Magnitude);
         }
     }

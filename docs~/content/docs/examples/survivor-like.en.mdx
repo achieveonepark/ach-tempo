@@ -1,0 +1,50 @@
+---
+title: Survivor-like
+description: Vampire Survivors / Survivor.io / Archero — an AI director that auto-paces wave intensity.
+---
+
+> **Why it fits:** this genre is essentially Left 4 Dead's "AI Director" by another name. Tempo's
+> tension → director → world loop *is* the swarm ↔ breather rhythm.
+
+## Mapping the parts
+
+| Tempo | In a survivor-like |
+|---|---|
+| `TensionModel.Current` | Enemy spawn density / difficulty gauge |
+| `SampleThreat` | On-screen enemy count + boss proximity |
+| `SampleAround` | Ground-hazard (poison/fire/electric field) danger |
+| `DirectorBrain` phases | Lull (BuildUp) → rush/elite (Peak) → breather (Relax) |
+| `SeedAction` | `SpawnSwarm` · `SpawnElite` · `OpenHazardZone` · `DropHealing` |
+| `WorldReaction` | Fire seas / poison clouds spreading on the grid (as-is) |
+| Safeguard caps | Max simultaneous enemies/hazards = **mobile heat / battery / frame defense** |
+
+## The flow
+
+In build-up you thin enemies and let healing/items trickle in for a breather; once tension settles low,
+a rush is coming. In peak you open an elite wave plus ground hazards at once to squeeze the screen. But
+you **must telegraph first** (wave warning ring, ground glowing red) so it never feels like a cheap death.
+
+```csharp
+public sealed class SurvivorDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _actions;
+    protected override int MaxActiveEvents => 60; // mobile: cap concurrent danger to fight heat
+
+    // Threat from on-screen enemy count and boss proximity.
+    public sealed class WaveTension : TensionModel
+    {
+        public int OnScreenEnemies; public float BossProximity;
+        protected override float SampleThreat(Vector3 p)
+            => Mathf.Clamp01(OnScreenEnemies / 40f) * 0.7f + BossProximity * 0.3f;
+    }
+}
+```
+
+`SpawnSwarm`/`SpawnElite` don't spawn enemies directly — they seed **spawn conditions** (open a spawn
+gate); your game's pooling/placement picks them up. The director only decides *when* and *how much*.
+
+## Mobile checkpoints
+
+- **Caps are your perf budget.** `MaxActiveEvents` and a concurrent-enemy cap protect frames on low-end devices.
+- **Sessions are short.** Keep phase cycles around 1–2 minutes so build-up → peak → relax loops several times per run.
+- **Telegraph big.** On a small screen warnings get lost; make them obvious with rings / screen-edge reddening.

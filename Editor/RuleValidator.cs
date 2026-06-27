@@ -55,7 +55,7 @@ namespace Achieve.Tempo.Editor
 
             // 알려진 재질 이름 모음.
             var known = new HashSet<string>();
-            foreach (Material m in data.Materials) known.Add(m.Name);
+            foreach (MaterialDef m in data.Materials) known.Add(m.Name);
 
             // 같은 (Trigger, 재질) 에 서로 어긋나는 효과가 동시에 있는지 본다.
             var seen = new Dictionary<string, StateEffect>();

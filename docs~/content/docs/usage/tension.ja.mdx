@@ -1,0 +1,81 @@
+---
+title: 緊張度
+description: プレイヤーの脅威と周囲の状況を 0〜1 の数値ひとつに合成するモデル。
+---
+
+ディレクターが見るのは数値ひとつ、緊張度（0〜1）だけです。`TensionModel` が3段階でこの数値を作ります：
+**2つの信号を 0〜1 に揃える → 合成する → なめらかにする。**
+
+## 3つの段階
+
+1. **0〜1に揃える** — プレイヤーの脅威と周囲の事象をそれぞれ 0〜1 の範囲に。
+2. **合成する** — どちらか一方でも高ければ全体が上がり、両方高ければほぼ最大（1は超えない）。
+   式は `1-(1-a)(1-b)`。
+3. **なめらかにする** — 上がるときは速く、下がるときはゆっくり。危険は即、安心は徐々に。
+
+```csharp
+// 4) 合成: 片方でも高ければ上がり、両方なら最大付近（1は超えない）
+float a   = Mathf.Clamp01(_playerStress * Cfg.StressWeight);
+float b   = Mathf.Clamp01(around        * Cfg.AroundWeight);
+float raw = 1f - (1f - a) * (1f - b);
+
+// 5) なめらかに: 上がるときは速く、下がるときはゆっくり
+float speed = raw > _smoothed ? Cfg.RiseSpeed : Cfg.FallSpeed;
+float k = 1f - Mathf.Exp(-dt / Mathf.Max(1e-4f, speed));
+_smoothed = Mathf.Lerp(_smoothed, raw, k);
+```
+
+> **合成の2通り**
+> - 既定: `1-(1-a)(1-b)`。
+> - よりくっきり: 2つの大きい方 `Mathf.Max(a, b)`。
+>
+> **要は「上がるときは速く、下がるときはゆっくり」。** これで蓄積→爆発→休息の流れが自然になります。
+
+## 外から見える部分
+
+```csharp
+public class TensionModel
+{
+    public float Current { get; }          // ディレクターが読む値
+    public void OnPlayerDamaged(float dmg, float maxHp); // 被弾で即跳ね上げ
+    public void Tick(Vector3 playerPos, WorldReaction world, float dt);
+}
+```
+
+## 被弾は即時、脅威は徐々に
+
+```csharp
+public void OnPlayerDamaged(float dmg, float maxHp)
+    => _playerStress = Mathf.Clamp01(_playerStress + dmg / maxHp * Cfg.DamageGain);
+```
+
+`Tick` の中では、近い脅威ほど大きく蓄積し、時間とともに徐々に下がります。
+
+## テスト用に信号を差し替える
+
+2つのサンプルメソッドは `virtual` なので、物理シーンなしでテストから信号を直接注入できます
+（インターフェースの代わりに差し替え）。
+
+```csharp
+sealed class StubTensionModel : TensionModel
+{
+    public float ThreatSignal, AroundSignal;
+    protected override float SampleThreat(Vector3 p) => ThreatSignal;
+    protected override float SampleAround(Vector3 p, WorldReaction world) => AroundSignal;
+}
+```
+
+既定の `SampleThreat` は `Physics.OverlapSphere` で周囲の敵を数え、`SampleAround` は
+`world.ActiveEvents` から近くの大きい事象ほど大きく評価します。
+
+## 調整値 — `TensionConfig`
+
+強さ・半径・重み・速度・しきい値はすべてデータです。範囲はゲームで調整します。
+
+| 値 | 意味 |
+|---|---|
+| `DamageGain` | 被弾時の即時上昇量 |
+| `ThreatGain` / `StressDecay` | 脅威の蓄積 / ストレス減衰 |
+| `StressWeight` / `AroundWeight` | 2信号を合成する際の重み |
+| `RiseSpeed` / `FallSpeed` | 上昇時 / 下降時の時定数 |
+| `ThreatRadius` / `AroundRadius` | サンプリング半径 |

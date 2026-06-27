@@ -1,0 +1,81 @@
+---
+title: 긴장도
+description: 플레이어 위협과 주변 상황을 합쳐 0~1 숫자 하나로 만드는 계산기.
+---
+
+디렉터가 보는 건 숫자 하나, 긴장도(0~1)뿐입니다. `TensionModel` 이 세 단계로 이 숫자를 만듭니다:
+**두 신호를 0~1로 맞추기 → 합치기 → 부드럽게 바꾸기.**
+
+## 세 단계
+
+1. **0~1로 맞추기** — 플레이어 위협과 주변에서 벌어지는 일을 각각 0~1 범위로.
+2. **합치기** — 둘 중 하나만 높아도 전체가 올라가고, 둘 다 높으면 거의 최대(1을 안 넘음).
+   식은 `1-(1-a)(1-b)`.
+3. **부드럽게 바꾸기** — 올라갈 땐 빠르게, 내려갈 땐 천천히. 위험은 바로 느끼고 안심은 서서히.
+
+```csharp
+// 4) 합치기: 하나만 높아도 올라가고, 둘 다면 최대 근처(1 안 넘음)
+float a   = Mathf.Clamp01(_playerStress * Cfg.StressWeight);
+float b   = Mathf.Clamp01(around        * Cfg.AroundWeight);
+float raw = 1f - (1f - a) * (1f - b);
+
+// 5) 부드럽게: 올라갈 땐 빠르게, 내려갈 땐 천천히
+float speed = raw > _smoothed ? Cfg.RiseSpeed : Cfg.FallSpeed;
+float k = 1f - Mathf.Exp(-dt / Mathf.Max(1e-4f, speed));
+_smoothed = Mathf.Lerp(_smoothed, raw, k);
+```
+
+> **합치는 방법 두 가지**
+> - 기본: `1-(1-a)(1-b)`.
+> - 더 또렷하게: 그냥 둘 중 큰 값 `Mathf.Max(a, b)`.
+>
+> **핵심은 '올라갈 땐 빠르게, 내려갈 땐 천천히'.** 그래야 쌓기→터짐→쉬기 흐름이 자연스럽습니다.
+
+## 바깥에 보이는 부분
+
+```csharp
+public class TensionModel
+{
+    public float Current { get; }          // 디렉터가 읽는 값
+    public void OnPlayerDamaged(float dmg, float maxHp); // 맞으면 바로 확 올림
+    public void Tick(Vector3 playerPos, WorldReaction world, float dt);
+}
+```
+
+## 피격은 즉시, 위협은 서서히
+
+```csharp
+public void OnPlayerDamaged(float dmg, float maxHp)
+    => _playerStress = Mathf.Clamp01(_playerStress + dmg / maxHp * Cfg.DamageGain);
+```
+
+`Tick` 안에서는 가까운 위협일수록 크게 누적하고, 시간이 지나면 서서히 내립니다.
+
+## 테스트용으로 신호 갈아끼우기
+
+두 샘플 메서드가 `virtual` 이라, 물리 씬 없이 테스트에서 신호를 직접 주입할 수 있습니다
+(인터페이스 대신 갈아끼움).
+
+```csharp
+sealed class StubTensionModel : TensionModel
+{
+    public float ThreatSignal, AroundSignal;
+    protected override float SampleThreat(Vector3 p) => ThreatSignal;
+    protected override float SampleAround(Vector3 p, WorldReaction world) => AroundSignal;
+}
+```
+
+기본 `SampleThreat` 는 `Physics.OverlapSphere` 로 주변 적을 세고, `SampleAround` 는
+`world.ActiveEvents` 에서 가까운 큰 일일수록 크게 칩니다.
+
+## 조정값 — `TensionConfig`
+
+세기·반경·가중치·속도·기준을 모두 데이터로 빼둡니다. 각 값의 적당한 범위는 게임에서 맞춥니다.
+
+| 값 | 뜻 |
+|---|---|
+| `DamageGain` | 피격 시 즉발 상승량 |
+| `ThreatGain` / `StressDecay` | 위협 누적 / 스트레스 감쇠 |
+| `StressWeight` / `AroundWeight` | 두 신호 합칠 때 가중 |
+| `RiseSpeed` / `FallSpeed` | 올라갈 때 / 내려갈 때 시간 상수 |
+| `ThreatRadius` / `AroundRadius` | 샘플링 반경 |

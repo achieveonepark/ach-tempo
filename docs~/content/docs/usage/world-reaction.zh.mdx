@@ -1,0 +1,109 @@
+---
+title: 世界反应
+description: 火、水、电按规则相互转化、并在网格上蔓延的一侧。
+---
+
+世界反应完全不知道导演的存在。条件进来后，它按规则蔓延，并持续更新「当前事件」列表。
+
+## 单格状态 — `ElementalState`
+
+一个格子（或物体）的当前状态。由于网格要处理大量格子，用轻量 `struct`。
+
+```csharp
+public struct ElementalState
+{
+    public int   MaterialId;  // 材质注册表索引（-1 表示空格）
+    public float Temperature;
+    public float Wetness;     // 潮湿度 0~1
+    public float Charge;      // 带电量 0~1
+    public bool  OnFire;
+    public bool  Frozen;
+}
+```
+
+「是否易燃、是否导电、何时融化」这类 **不变的性质** 不写进状态，而是从 `Material` 中查。
+
+## 材质 — `Material`
+
+```csharp
+new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+             ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
+```
+
+材质只注册一次，按索引共享。`RuleData.ResolveMaterialId(name)` 按名称查找，没有就新建并注册。
+
+## 反应规则 — `ReactionRule`
+
+反应放在表（数据）里而非代码：「这种要素／触到这种材质／超过阈值 → 这样变化」。
+
+```csharp
+[Serializable]
+public sealed class ReactionRule
+{
+    public ElementTag Trigger;         // 火/水/冰/电/风
+    public string     TargetMaterials; // 单栏分隔符: "Wood;Grass;Cloth"
+    public StateEffect Effect;         // Ignite / Extinguish / Wet / Freeze ...
+    public float      Probability;     // 0~1
+    public float      Threshold;
+}
+```
+
+- 目标材质写在 **以 `;` 分隔的单个字段**，而非数组 UI（项目约定）。读取时只拆分一次并缓存。
+  留空则匹配所有材质。
+- 以旷野之息的三条基本规则为起点：
+  1. 要素改变 **材质** —— 火点燃干草；
+  2. 要素改变 **另一种要素** —— 水浇灭火；
+  3. 视情况要素产生 **力** —— 电在金属上引发触电。
+
+规则表通过 `DataService<RuleData>.GetDataCenter()` 获取。
+
+## 蔓延与结果 — `WorldReaction`
+
+```csharp
+public class WorldReaction
+{
+    // 导演读取的部分
+    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+
+    // 导演铺设条件的入口
+    public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
+    public void SetWind(Vector2 dir, float strength);
+
+    public void Tick(float dt); // 按规则蔓延 + 刷新列表
+}
+```
+
+- **蔓延方式：** 在扁平网格（用平面数组／`Dictionary`，绝不用 `SortedSet`）上应用规则，让火向邻格
+  延烧。每帧依据风向与邻格的易燃程度蔓延。
+- **`ActiveEvents`：** 每一项是 `ReactionHandle`（位置、大小、剩余时间、种类）。导演与紧张度模型查看
+  此列表。结束的项每帧清理，邻近的同类合并为一项。
+
+```csharp
+public struct ReactionHandle
+{
+    public Vector3    Position;
+    public float      Magnitude; // 大小（换算成紧张度时使用）
+    public float      Ttl;       // 剩余时间
+    public ElementTag Kind;
+}
+```
+
+## 铺设网格
+
+```csharp
+var world = new WorldReaction(64, 64, cellSize: 1f, origin: transform.position);
+world.Fill("Grass");            // 全部铺成草
+world.SetCell(10, 12, "Water"); // 单格水洼
+world.SetWind(new Vector2(1, 0), 1.2f);
+```
+
+## 直接铺设条件
+
+```csharp
+world.ApplyElement(spot, radius: 2f, ElementTag.Fire, power: 1f);   // 火种
+world.ApplyElement(playerPos, radius: 14f, ElementTag.Water, 1f);   // 雨
+```
+
+`ApplyElement` 会立即对触到的格子应用规则表（水一碰到火就地熄灭），随后由 `Tick` 继续推进蔓延。
+
+> 性能：网格计算同样适合 Jobs/Burst + `NativeArray`。默认实现使用托管的平面数组，以便零依赖运行。

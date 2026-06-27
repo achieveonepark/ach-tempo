@@ -1,0 +1,60 @@
+---
+title: Safeguards
+description: Keep chains from growing too big, and always telegraph what the director seeds.
+---
+
+The world can produce chains even the director didn't expect. A few safeguards keep it in check.
+
+## 1. Caps
+
+Cap the number / total magnitude of simultaneous events. Past the cap, hold off on lighting new fires
+(Trigger actions).
+
+```csharp
+protected virtual int MaxActiveEvents => 48;
+
+// inside PickActions
+bool overloaded = world.ActiveEvents.Count >= MaxActiveEvents;
+if (overloaded && action.Intent == SeedIntent.Trigger) continue; // skip new fire
+```
+
+`WorldReaction.BurningCells` also exposes the burning-cell count for a stricter cap.
+
+## 2. Quench first in the relax phase
+
+In the relax phase only `Intent == Calm` actions (rain, extinguish) are chosen. The default policy
+already behaves this way.
+
+## 3. Mercy when it goes off underfoot
+
+So a condition the director seeded doesn't kill the player instantly right underfoot, ease off near the
+player — reduce the power or delay it a beat. (This is where your damage code applies a distance falloff.)
+
+## 4. Telegraph it (foreshadowing)
+
+The most important one. Conditions the director seeds **must be telegraphed** — storm clouds gather,
+the wind dries out. Without it the player just thinks "why did I suddenly die?"
+
+- `DryUpwind` → wind picking up and drying (rustling grass, sound).
+- `ChargeStorm` → storm clouds gathering first.
+- `IgniteUpwind` → a small ember/smoke visible upwind in the distance first.
+
+Read `DirectorBrain.CurrentPhase` and `WorldReaction.ActiveEvents` to drive your foreshadowing visuals.
+
+> **Why it matters:** BotW used sleight-of-hand tricks, yet still showed clearly what needed showing.
+> Ultima Online's autonomous ecology, by contrast, failed because players never noticed it.
+> **Show clearly what needs to be shown.**
+
+## Checking with debug tools
+
+Use the editor's **Tools → Tempo → Debug Window** to watch the tension graph, phase, event count and
+burning cells live. Wire it up from your game code:
+
+```csharp
+#if UNITY_EDITOR
+Achieve.Tempo.Editor.DebugWindow.Bind(_tension, _director, _world);
+#endif
+```
+
+Before building, **Tools → Tempo → Validate Rules** (or the automatic build check) catches missing
+materials and conflicting rules in the table.

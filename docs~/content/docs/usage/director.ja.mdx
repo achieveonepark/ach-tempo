@@ -1,0 +1,101 @@
+---
+title: ディレクター
+description: 緊張度ひとつを見て局面を決め、予算の範囲で条件だけを撒く側。
+---
+
+ディレクターは敵を直接出しません。緊張度の数値ひとつを見て局面（蓄積→爆発→休息）を決め、
+使える量（予算）の範囲でアクションを選び、ワールドに **条件だけ** を撒きます。
+
+## 条件撒き1種 — `SeedAction`
+
+```csharp
+public abstract class SeedAction
+{
+    public abstract float      Cost   { get; }  // 予算をどれだけ消費するか
+    public abstract SeedIntent Intent { get; }  // Prepare / Trigger / Calm
+    public virtual  bool CanSeed(WorldReaction world, Vector3 playerPos) => true;
+    public abstract void Seed   (WorldReaction world, Vector3 playerPos);
+}
+```
+
+`Intent` が局面と結びつきます — **Prepare**（蓄積）・**Trigger**（爆発）・**Calm**（休息）。
+各アクションは `CanSeed` で「今撒いてよいか」を先に確認し、ワールドの入口（`ApplyElement`/`SetWind`）だけを呼びます。
+
+標準4種：
+
+| アクション | Intent | 役割 |
+|---|---|---|
+| `DryUpwind` | Prepare | 風を立てて乾かし、よく燃える条件を整える（まだ着火しない） |
+| `IgniteUpwind` | Trigger | 風上の乾いた草に火種を投げる → 風に乗ってプレイヤーへ |
+| `ChargeStorm` | Trigger | 金属／水たまりの上に雷雲を出して感電 |
+| `SummonRain` | Calm | 雨で消火・湿らせて一息つかせる |
+
+## ディレクターの頭脳 — `DirectorBrain`
+
+```csharp
+public abstract class DirectorBrain
+{
+    public Phase CurrentPhase { get; }
+
+    // ゲームごとにアクション一覧だけ差し替え（インターフェースではなく virtual）
+    protected virtual IReadOnlyList<SeedAction> ActionPool
+        => DataService<ActionData>.GetDataCenter().Actions;
+
+    public void Tick(WorldReaction world, TensionModel tension, Vector3 playerPos, float dt)
+    {
+        Phase phase  = _fsm.Evaluate(tension.Current, dt);
+        float budget = DataService<PhaseData>.GetDataCenter().BudgetFor(phase);
+
+        foreach (SeedAction action in PickActions(phase, budget, world, playerPos))
+            action.Seed(world, playerPos);   // ★ 敵を出すのではなく条件だけを撒く
+    }
+
+    protected virtual IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos) { /* 既定方針 */ }
+}
+```
+
+オーバーライドなしで使うなら `DefaultDirectorBrain` を使います。
+
+## 局面と予算
+
+局面ごとにディレクターの使える量（予算）を変えます。`PhaseData` に記述します。
+
+- **蓄積(BuildUp)** — よく燃える条件だけを少しずつ（乾いた草・電気・燃料）。予算は少なく、危険でないものだけ。
+- **爆発(Peak)** — 蓄積に火種を投げて一気に。予算を多く。
+- **休息(Relax)** — 雨で消して一息つき、予算を回復。消す系のみ。
+
+既定の `PickActions` は局面に合う `Intent` のアクションを、予算内で、`CanSeed` を通るものだけ選びます。
+細かな方針が要るならオーバーライドします。
+
+```csharp
+public sealed class MyDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _myActions;
+
+    protected override IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos)
+    {
+        // ゲーム固有の優先度／クールダウンなどをここで
+        return base.PickActions(phase, budget, world, playerPos);
+    }
+}
+```
+
+## ちらつき防止 — `PhaseFsm`
+
+しきい値が1つだと境界で局面が行き来してちらつきます。そこで **上げる基準と下げる基準を変え**
+（ヒステリシス）、最低限の休息時間を保証します。
+
+```csharp
+case Phase.BuildUp:
+    if (tension >= Cfg.PeakEnter) _phase = Phase.Peak;              // 例: 0.80
+    break;
+case Phase.Peak:
+    if (tension <= Cfg.RelaxEnter) { _phase = Phase.Relax; _relaxTimer = 0; } // 例: 0.45
+    break;
+case Phase.Relax:
+    if (tension <= Cfg.BuildUpEnter && _relaxTimer >= Cfg.MinRelax)
+        _phase = Phase.BuildUp;                                     // 最低休息時間を保証
+    break;
+```

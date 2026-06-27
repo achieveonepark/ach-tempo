@@ -1,0 +1,99 @@
+---
+title: はじめに
+description: インストールして、ひと回りの流れを初めて動かします。
+---
+
+## 必要条件
+
+- Unity **2022.3** 以上
+- 外部依存なし（`dependencies: {}`）
+
+## インストール
+
+Unity Package Manager → **Add package from git URL**:
+
+```text
+https://github.com/achieveonepark/ach-tempo.git
+```
+
+または `Packages/manifest.json` に直接：
+
+```json
+{
+  "dependencies": {
+    "com.achieve.tempo": "https://github.com/achieveonepark/ach-tempo.git"
+  }
+}
+```
+
+## 最初のひと回り
+
+空の `GameObject` に次のコンポーネントを付けると、草原で火が燃え広がり始めます。
+
+```csharp
+using Achieve.Tempo.Director;
+using Achieve.Tempo.Tension;
+using Achieve.Tempo.World;
+using UnityEngine;
+
+public class TempoExample : MonoBehaviour
+{
+    WorldReaction _world;
+    DirectorBrain _director;
+    TensionModel  _tension;
+
+    void Start()
+    {
+        _world = new WorldReaction(width: 64, height: 64, cellSize: 1f, origin: transform.position);
+        _world.Fill("Grass");                       // 草原を敷く
+        _world.SetWind(new Vector2(1f, 0f), 1.2f);  // 風を東へ
+
+        _director = new DefaultDirectorBrain();
+        _tension  = new TensionModel();
+    }
+
+    void Update()
+    {
+        float dt = Time.deltaTime;
+        Vector3 player = transform.position;
+
+        // 必ず同じ順: 緊張度 → ディレクター → ワールド
+        _tension.Tick(player, _world, dt);
+        _director.Tick(_world, _tension, player, dt);
+        _world.Tick(dt);
+    }
+}
+```
+
+3つの `Tick` の順番は **必ず** 緊張度 → ディレクター → ワールド です。ディレクターはこのフレームの
+緊張度を見て条件を撒き、ワールドがそれを受けて広がります。
+
+## 被弾を緊張度に反映する
+
+プレイヤーが攻撃を受けたら、緊張度を即座に跳ね上げます。
+
+```csharp
+void OnDamaged(float dmg, float maxHp) => _tension.OnPlayerDamaged(dmg, maxHp);
+```
+
+## データを差し替える
+
+ルール表・アクション・しきい値はすべてデータセンターに入っており、既定値があるので設定なしで動きます。
+独自の値を使うには、起動時に登録するだけです。
+
+```csharp
+using Achieve.Tempo.Config;
+
+var rules = new RuleData();           // 自分で埋めるか、Addressables で読み込んだ SO を変換
+DataService<RuleData>.Register(rules);
+```
+
+## サンプルを取り込む
+
+Package Manager → Tempo → **Samples** → *Basic Grass Fire* を Import すると、
+`BasicGrassFireDirector` コンポーネントで緊張度・局面・延焼を画面で確認できます。
+
+## 次へ
+
+- [ワールドリアクション](/usage/world-reaction) で延焼ルールを詳しく。
+- [ディレクター](/usage/director) で局面とアクションをカスタマイズ。

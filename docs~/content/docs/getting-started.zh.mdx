@@ -1,0 +1,99 @@
+---
+title: 快速开始
+description: 安装并首次运行一轮完整循环。
+---
+
+## 环境要求
+
+- Unity **2022.3** 或更高
+- 无外部依赖（`dependencies: {}`）
+
+## 安装
+
+Unity Package Manager → **Add package from git URL**：
+
+```text
+https://github.com/achieveonepark/ach-tempo.git
+```
+
+或直接写入 `Packages/manifest.json`：
+
+```json
+{
+  "dependencies": {
+    "com.achieve.tempo": "https://github.com/achieveonepark/ach-tempo.git"
+  }
+}
+```
+
+## 第一轮循环
+
+把下面的组件挂到一个空 `GameObject` 上，草地上的火就会开始蔓延。
+
+```csharp
+using Achieve.Tempo.Director;
+using Achieve.Tempo.Tension;
+using Achieve.Tempo.World;
+using UnityEngine;
+
+public class TempoExample : MonoBehaviour
+{
+    WorldReaction _world;
+    DirectorBrain _director;
+    TensionModel  _tension;
+
+    void Start()
+    {
+        _world = new WorldReaction(width: 64, height: 64, cellSize: 1f, origin: transform.position);
+        _world.Fill("Grass");                       // 铺一片草地
+        _world.SetWind(new Vector2(1f, 0f), 1.2f);  // 风向东吹
+
+        _director = new DefaultDirectorBrain();
+        _tension  = new TensionModel();
+    }
+
+    void Update()
+    {
+        float dt = Time.deltaTime;
+        Vector3 player = transform.position;
+
+        // 始终同一顺序：紧张度 → 导演 → 世界
+        _tension.Tick(player, _world, dt);
+        _director.Tick(_world, _tension, player, dt);
+        _world.Tick(dt);
+    }
+}
+```
+
+三个 `Tick` 的顺序**必须**是 紧张度 → 导演 → 世界。导演读取本帧的紧张度来铺设条件，
+世界接过条件后蔓延。
+
+## 把受击反映到紧张度
+
+玩家被击中时，立即拉高紧张度。
+
+```csharp
+void OnDamaged(float dmg, float maxHp) => _tension.OnPlayerDamaged(dmg, maxHp);
+```
+
+## 替换数据
+
+规则表、动作、阈值都放在数据中心里且自带默认值，因此无需配置即可运行。
+要使用自己的数值，只需在启动时注册。
+
+```csharp
+using Achieve.Tempo.Config;
+
+var rules = new RuleData();           // 自行填充，或转换通过 Addressables 加载的 SO
+DataService<RuleData>.Register(rules);
+```
+
+## 导入示例
+
+Package Manager → Tempo → **Samples** → *Basic Grass Fire*。导入后，
+`BasicGrassFireDirector` 组件可让你在屏幕上观察紧张度、阶段与蔓延。
+
+## 下一步
+
+- [世界反应](/usage/world-reaction) 深入了解蔓延规则。
+- [导演](/usage/director) 自定义阶段与动作。

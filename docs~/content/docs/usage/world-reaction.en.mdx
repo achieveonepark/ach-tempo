@@ -1,0 +1,116 @@
+---
+title: World reaction
+description: The side where fire, water and electricity transform by rules and spread across a grid.
+---
+
+The world reaction has no idea the director exists. Conditions come in, it spreads by rules, and it
+keeps the list of live events up to date.
+
+## One cell's state — `ElementalState`
+
+The current state of a cell (or object). It's a lightweight `struct` because the grid processes many of them.
+
+```csharp
+public struct ElementalState
+{
+    public int   MaterialId;  // index into the material registry (-1 = empty)
+    public float Temperature;
+    public float Wetness;     // 0–1
+    public float Charge;      // electric charge 0–1
+    public bool  OnFire;
+    public bool  Frozen;
+}
+```
+
+Fixed properties — flammability, conductivity, melting point — aren't stored in the state; they're
+looked up from `Material`.
+
+## Material
+
+```csharp
+new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+             ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
+```
+
+Materials are registered once and shared by index. `RuleData.ResolveMaterialId(name)` finds one by name,
+creating and registering it if missing.
+
+## Reaction rule — `ReactionRule`
+
+Reactions are data, not code: "this element / touching this material / over this threshold → changes like this".
+
+```csharp
+[Serializable]
+public sealed class ReactionRule
+{
+    public ElementTag Trigger;         // Fire/Water/Ice/Electric/Wind
+    public string     TargetMaterials; // separated in one field: "Wood;Grass;Cloth"
+    public StateEffect Effect;         // Ignite / Extinguish / Wet / Freeze ...
+    public float      Probability;     // 0–1
+    public float      Threshold;
+}
+```
+
+- Target materials go in **one field separated by `;`**, not an array UI (a project convention). They're
+  split once and cached. Leave it empty to match every material.
+- The three BotW rules are the starting point:
+  1. an element changes a **material** — fire burns dry grass;
+  2. an element changes **another element** — water quenches fire;
+  3. depending on the situation an element creates a **force** — electricity shocks through metal.
+
+The rule table comes from `DataService<RuleData>.GetDataCenter()`.
+
+## Spread and results — `WorldReaction`
+
+```csharp
+public class WorldReaction
+{
+    // what the director reads
+    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+
+    // entry points where the director seeds conditions
+    public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
+    public void SetWind(Vector2 dir, float strength);
+
+    public void Tick(float dt); // spread by rules + refresh the list
+}
+```
+
+- **How it spreads:** rules are applied on a flat grid (a plain array / `Dictionary`, never a `SortedSet`)
+  so fire jumps to neighbor cells. It spreads each frame based on wind direction and how flammable the
+  neighbor is.
+- **`ActiveEvents`:** each entry is a `ReactionHandle` (position, magnitude, time-to-live, kind). The
+  director and tension model watch this list. Finished entries are cleared each frame, and nearby events
+  of the same kind merge into one.
+
+```csharp
+public struct ReactionHandle
+{
+    public Vector3    Position;
+    public float      Magnitude; // size (used when converting to tension)
+    public float      Ttl;       // time left
+    public ElementTag Kind;
+}
+```
+
+## Laying down a grid
+
+```csharp
+var world = new WorldReaction(64, 64, cellSize: 1f, origin: transform.position);
+world.Fill("Grass");            // all grass
+world.SetCell(10, 12, "Water"); // one puddle cell
+world.SetWind(new Vector2(1, 0), 1.2f);
+```
+
+## Seeding conditions directly
+
+```csharp
+world.ApplyElement(spot, radius: 2f, ElementTag.Fire, power: 1f);   // an ember
+world.ApplyElement(playerPos, radius: 14f, ElementTag.Water, 1f);   // rain
+```
+
+`ApplyElement` applies the rule table to the touched cells immediately (water touching fire quenches it
+right there); `Tick` then carries the spread forward.
+
+> Performance: grid math also fits Jobs/Burst + `NativeArray`. The default implementation uses a managed
+> flat array so it runs with no dependencies.

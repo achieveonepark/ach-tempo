@@ -1,0 +1,26 @@
+# Changelog
+
+이 패키지의 주요 변경 사항을 기록합니다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/),
+버전은 [Semantic Versioning](https://semver.org/lang/ko/) 을 따릅니다.
+
+## [0.1.0] - 2026-06-27
+
+### Added
+
+- **월드 반응** (`Achieve.Tempo.World`): 평면 격자에서 불·물·얼음·전기가 규칙대로 번지는 `WorldReaction`,
+  한 칸 상태 `ElementalState`, 재질 `Material`, 표로 두는 반응 규칙 `ReactionRule`(`;` 구분자 한 칸 입력),
+  지금 벌어지는 일 `ReactionHandle`.
+- **디렉터** (`Achieve.Tempo.Director`): 기본 정책을 깔고 virtual 로 확장하는 `DirectorBrain`,
+  조건 깔기 동작 `SeedAction` 과 기본 4종(`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`),
+  국면 전환 `PhaseFsm`(히스테리시스).
+- **긴장도** (`Achieve.Tempo.Tension`): 두 신호를 합쳐 0~1로 내는 `TensionModel`
+  (올라갈 땐 빠르게·내려갈 땐 천천히).
+- **설정** (`Achieve.Tempo.Config`): 코드와 분리된 데이터센터 `DataService<T>` 와
+  `TensionConfig`/`PhaseData`/`ActionData`/`RuleData`(기본값 포함).
+- **에디터 도구** (`Achieve.Tempo.Editor`): 규칙표를 빌드 전에 검사하는 `RuleValidator`,
+  긴장도·국면을 실시간으로 보는 `DebugWindow`.
+- **테스트**: EditMode(`TensionModel`/`PhaseFsm`/`ReactionRule`), PlayMode(번짐 방향).
+- **예제**: `Samples~/BasicGrassFire` — 가장 단순한 한 바퀴 흐름.
+- **문서**: `docs~/` fumadocs 사이트 (ko/en/ja/zh).
+
+[0.1.0]: https://github.com/achieveonepark/ach-tempo/releases/tag/0.1.0

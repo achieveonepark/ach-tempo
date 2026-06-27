@@ -1,0 +1,13 @@
+{
+  "name": "Achieve.Tempo.Samples.BasicGrassFire",
+  "rootNamespace": "Achieve.Tempo.Samples",
+  "references": [
+    "Achieve.Tempo"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "noEngineReferences": false
+}

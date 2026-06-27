@@ -1,0 +1,114 @@
+---
+title: 월드 반응
+description: 불·물·전기가 규칙대로 서로 바뀌고 격자에서 번지는 쪽.
+---
+
+월드 반응은 디렉터의 존재를 전혀 모릅니다. 조건이 들어오면 규칙대로 번지고, '지금 벌어지는 일'
+목록을 갱신할 뿐입니다.
+
+## 한 칸의 상태 — `ElementalState`
+
+칸(또는 물체) 하나의 지금 상태입니다. 격자에서 많이 처리하니 가벼운 `struct` 로 둡니다.
+
+```csharp
+public struct ElementalState
+{
+    public int   MaterialId;  // 재질 레지스트리 인덱스 (-1 이면 빈 칸)
+    public float Temperature; // 온도
+    public float Wetness;     // 젖은 정도 0~1
+    public float Charge;      // 전기 충전 0~1
+    public bool  OnFire;
+    public bool  Frozen;
+}
+```
+
+'잘 타는지·전기가 통하는지·언제 녹는지' 같은 **변하지 않는 성질**은 상태에 적지 않고
+`Material` 에서 찾아봅니다.
+
+## 재질 — `Material`
+
+```csharp
+new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+             ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
+```
+
+재질은 한 번만 등록해 인덱스로 공유합니다. `RuleData.ResolveMaterialId(name)` 가 이름으로 찾아주고,
+없으면 새로 만들어 등록합니다.
+
+## 반응 규칙 — `ReactionRule`
+
+반응은 코드가 아니라 표(데이터)로 둡니다. "이런 요소가 / 이런 재질에 닿고 / 기준을 넘으면 → 이렇게 바뀐다".
+
+```csharp
+[Serializable]
+public sealed class ReactionRule
+{
+    public ElementTag Trigger;         // 불/물/얼음/전기/바람
+    public string     TargetMaterials; // 한 칸에 구분자로: "Wood;Grass;Cloth"
+    public StateEffect Effect;         // Ignite / Extinguish / Wet / Freeze ...
+    public float      Probability;     // 매번 일어날 확률 0~1
+    public float      Threshold;       // 발동 기준
+}
+```
+
+- 대상 재질은 **배열 UI 말고 `;` 로 구분한 한 칸**에 적습니다(약속). 읽을 때 한 번만 쪼개 캐시합니다.
+  비워 두면 모든 재질이 대상입니다.
+- 야숨이 쓴 세 가지 기본 규칙을 출발점으로 합니다.
+  1. 요소가 **재질**을 바꾼다 — 불이 마른 풀을 태운다.
+  2. 요소가 **다른 요소**를 바꾼다 — 물이 불을 끈다.
+  3. 상황에 따라 요소가 **힘**을 만든다 — 전기가 금속에서 감전을 일으킨다.
+
+규칙 표는 `DataService<RuleData>.GetDataCenter()` 로 가져옵니다.
+
+## 번짐과 결과 — `WorldReaction`
+
+```csharp
+public class WorldReaction
+{
+    // 디렉터가 읽는 부분
+    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+
+    // 디렉터가 조건을 까는 입구
+    public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
+    public void SetWind(Vector2 dir, float strength);
+
+    public void Tick(float dt); // 규칙대로 번짐 + 목록 갱신
+}
+```
+
+- **번지는 방식:** 평평한 격자(`SortedSet` 대신 평면 배열·`Dictionary`)에서 규칙을 적용해 옆 칸으로
+  옮겨붙게 합니다. 바람 방향 + 옆 칸이 잘 타는지에 따라 매 프레임 번집니다.
+- **`ActiveEvents`:** 한 건이 `ReactionHandle`(위치·크기·남은 시간·종류)입니다. 디렉터와 긴장도
+  계산기가 이 목록을 봅니다. 끝난 건은 매 프레임 치우고, 가까운 같은 종류는 한 건으로 합칩니다.
+
+```csharp
+public struct ReactionHandle
+{
+    public Vector3    Position;
+    public float      Magnitude; // 크기 (긴장도로 환산할 때 씀)
+    public float      Ttl;       // 남은 시간
+    public ElementTag Kind;
+}
+```
+
+## 격자 깔기
+
+```csharp
+var world = new WorldReaction(64, 64, cellSize: 1f, origin: transform.position);
+world.Fill("Grass");            // 전부 풀로
+world.SetCell(10, 12, "Water"); // 한 칸만 물웅덩이로
+world.SetWind(new Vector2(1, 0), 1.2f);
+```
+
+## 직접 조건 깔기
+
+```csharp
+world.ApplyElement(spot, radius: 2f, ElementTag.Fire, power: 1f);   // 불씨
+world.ApplyElement(playerPos, radius: 14f, ElementTag.Water, 1f);   // 비
+```
+
+`ApplyElement` 는 닿은 칸에 즉시 규칙표를 적용하고(물이 닿으면 그 자리에서 불이 꺼지는 식),
+이후 `Tick` 이 번짐을 이어갑니다.
+
+> 성능: 격자 계산은 Jobs/Burst + `NativeArray` 와도 잘 맞습니다. 기본 구현은 의존성 없이 동작하도록
+> 관리되는 평면 배열을 씁니다.

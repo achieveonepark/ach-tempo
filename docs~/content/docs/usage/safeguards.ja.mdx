@@ -1,0 +1,58 @@
+---
+title: 安全装置
+description: 連鎖が大きくなりすぎないよう抑え、ディレクターが撒いた条件は必ず前兆で見せる。
+---
+
+ワールドはディレクターも想定しない大連鎖を生むことがあります。そこでいくつかの装置を置きます。
+
+## 1. 上限
+
+同時に起きる事象の数／総量に上限を設けます。超えたら新しい着火（Trigger）を一時的に止めます。
+
+```csharp
+protected virtual int MaxActiveEvents => 48;
+
+// PickActions の中で
+bool overloaded = world.ActiveEvents.Count >= MaxActiveEvents;
+if (overloaded && action.Intent == SeedIntent.Trigger) continue; // 新しい火はスキップ
+```
+
+`WorldReaction.BurningCells` で現在燃えているマス数も見られ、より厳しい上限を掛けられます。
+
+## 2. 休息局面では消火を優先
+
+休息（Relax）局面では `Intent == Calm` のアクション（雨・消火）だけを選びます。既定方針が既にそう動きます。
+
+## 3. 足元で起きても少し手加減
+
+ディレクターが撒いた条件が足元で起きて即死しないよう、プレイヤー付近では威力を下げる／一拍遅らせる
+などで少し手加減します。（ダメージ処理側で距離補正を入れる箇所）
+
+## 4. 前もって見せる（前兆）
+
+最も重要です。ディレクターが撒いた条件は **必ず前兆で見せます** — 雷雲が迫り、風が乾いていく。
+見せないとプレイヤーは「なぜ突然死んだ？」となります。
+
+- `DryUpwind` → 風が強まり乾く演出（草の揺れ・音）。
+- `ChargeStorm` → まず雷雲が迫る演出。
+- `IgniteUpwind` → 遠くの風上に小さな火種／煙が先に見えるように。
+
+`DirectorBrain.CurrentPhase` と `WorldReaction.ActiveEvents` を読んで前兆演出を出してください。
+
+> **なぜ重要か:** BotW は「ちょっとした目くらまし」を使いつつ、見せるべきものははっきり見せました。
+> 逆にウルティマオンラインの自律生態系は、プレイヤーが気づけず失敗しました。
+> **見せるべきものははっきり見せること。**
+
+## デバッグで確認する
+
+エディタの **Tools → Tempo → Debug Window** で緊張度グラフ・局面・事象数・燃えているマスを
+リアルタイムに見られます。ゲームコードから接続します。
+
+```csharp
+#if UNITY_EDITOR
+Achieve.Tempo.Editor.DebugWindow.Bind(_tension, _director, _world);
+#endif
+```
+
+ビルド前に **Tools → Tempo → Validate Rules**（または自動ビルド検査）で、ルール表の存在しない素材・
+矛盾するルールを検出します。

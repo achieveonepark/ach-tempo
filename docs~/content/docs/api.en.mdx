@@ -1,0 +1,74 @@
+---
+title: API
+description: The public classes and members, summarized.
+---
+
+A game typically subclasses `DirectorBrain`, swaps the action list, and calls the three `Tick`s from its own loop.
+
+## `Achieve.Tempo.World`
+
+### `WorldReaction`
+
+| Member | Signature | Description |
+|---|---|---|
+| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | List of live events |
+| `BurningCells` | `int` | Currently burning cell count |
+| `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | Stamp an element over an area |
+| `SetWind` | `(Vector2 dir, float strength)` | Set the wind |
+| `Fill` / `SetCell` | `(string material)` / `(int x, int y, string material)` | Lay down the grid |
+| `GetCell` | `(int x, int y) → ElementalState` | Read a cell's state |
+| `Tick` | `(float dt)` | Spread + refresh the list |
+
+### Value types
+
+- `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
+- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
+- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`, `TargetMaterialList`, `MatchesMaterial`, static `Split`
+- `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
+- `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`
+
+## `Achieve.Tempo.Director`
+
+### `DirectorBrain` (abstract)
+
+| Member | Signature | Description |
+|---|---|---|
+| `CurrentPhase` | `Phase` | The current phase |
+| `Tick` | `(WorldReaction, TensionModel, Vector3 playerPos, float dt)` | Pick a phase and seed conditions |
+| `ActionPool` | `virtual IReadOnlyList<SeedAction>` | The action list (override) |
+| `PickActions` | `virtual IEnumerable<SeedAction>` | Action-selection policy (override) |
+| `MaxActiveEvents` | `virtual int` | Simultaneous-event cap |
+
+- `DefaultDirectorBrain` — default implementation to use without overrides.
+- `SeedAction` (abstract) — `Cost`, `Intent`, `CanSeed`, `Seed`.
+- Built-in actions: `DryUpwind`, `IgniteUpwind`, `ChargeStorm`, `SummonRain`.
+- `enum SeedIntent` — `Prepare, Trigger, Calm`.
+- `enum Phase` — `BuildUp, Peak, Relax`.
+- `PhaseFsm` — `Evaluate(float tension, float dt) → Phase`, `Current`, `Reset()`.
+
+## `Achieve.Tempo.Tension`
+
+### `TensionModel`
+
+| Member | Signature | Description |
+|---|---|---|
+| `Current` | `float` | Tension the director reads, 0–1 |
+| `PlayerStress` | `float` | Player stress, 0–1 |
+| `OnPlayerDamaged` | `(float dmg, float maxHp)` | Immediate spike on hit |
+| `Tick` | `(Vector3 playerPos, WorldReaction, float dt)` | Update tension |
+| `SampleThreat` | `protected virtual (Vector3) → float` | Threat signal (swappable) |
+| `SampleAround` | `protected virtual (Vector3, WorldReaction) → float` | Nearby signal (swappable) |
+
+## `Achieve.Tempo.Config`
+
+- `DataService<T>` — `GetDataCenter()`, `Register(T)`, `Reset()`.
+- `TensionConfig` — strengths, radii, weights, speeds, thresholds.
+- `PhaseData` — `PeakEnter/RelaxEnter/BuildUpEnter/MinRelax`, per-phase budgets, `BudgetFor(Phase)`.
+- `ActionData` — `Actions`, `Add(SeedAction)`.
+- `RuleData` — `Materials`, `Rules`, `ResolveMaterialId`, `GetMaterial`, `AddMaterial`, `AddRule`, spread thresholds.
+
+## `Achieve.Tempo.Editor`
+
+- `RuleValidator` — `Validate(RuleData) → List<Issue>`, menu `Tools/Tempo/Validate Rules`, automatic pre-build check.
+- `DebugWindow` — `Bind(TensionModel, DirectorBrain, WorldReaction)`, menu `Tools/Tempo/Debug Window`.

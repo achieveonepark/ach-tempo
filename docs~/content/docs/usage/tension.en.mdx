@@ -1,0 +1,81 @@
+---
+title: Tension
+description: The model that combines player threat and nearby activity into a single 0–1 number.
+---
+
+All the director watches is one number: tension (0–1). `TensionModel` builds it in three steps:
+**normalize the two signals to 0–1 → combine → smooth.**
+
+## The three steps
+
+1. **Normalize** — bring player threat and nearby activity each into the 0–1 range.
+2. **Combine** — if either is high the whole thing rises; if both are high it's near the max (never over 1).
+   The formula is `1-(1-a)(1-b)`.
+3. **Smooth** — rise fast, fall slow. Danger should register immediately; relief should arrive gradually.
+
+```csharp
+// 4) combine: either signal raises it; both → near max (never over 1)
+float a   = Mathf.Clamp01(_playerStress * Cfg.StressWeight);
+float b   = Mathf.Clamp01(around        * Cfg.AroundWeight);
+float raw = 1f - (1f - a) * (1f - b);
+
+// 5) smooth: rise fast, fall slow
+float speed = raw > _smoothed ? Cfg.RiseSpeed : Cfg.FallSpeed;
+float k = 1f - Mathf.Exp(-dt / Mathf.Max(1e-4f, speed));
+_smoothed = Mathf.Lerp(_smoothed, raw, k);
+```
+
+> **Two ways to combine**
+> - Default: `1-(1-a)(1-b)`.
+> - Sharper: just the larger of the two, `Mathf.Max(a, b)`.
+>
+> **The key is "rise fast, fall slow."** That's what makes the build-up → peak → relax flow feel natural.
+
+## Public surface
+
+```csharp
+public class TensionModel
+{
+    public float Current { get; }          // what the director reads
+    public void OnPlayerDamaged(float dmg, float maxHp); // spike on hit
+    public void Tick(Vector3 playerPos, WorldReaction world, float dt);
+}
+```
+
+## Damage is immediate, threat is gradual
+
+```csharp
+public void OnPlayerDamaged(float dmg, float maxHp)
+    => _playerStress = Mathf.Clamp01(_playerStress + dmg / maxHp * Cfg.DamageGain);
+```
+
+Inside `Tick`, closer threats accumulate more, and stress decays gradually over time.
+
+## Injecting signals for tests
+
+The two sample methods are `virtual`, so a test can inject signals directly without a physics scene
+(swapped in place of an interface).
+
+```csharp
+sealed class StubTensionModel : TensionModel
+{
+    public float ThreatSignal, AroundSignal;
+    protected override float SampleThreat(Vector3 p) => ThreatSignal;
+    protected override float SampleAround(Vector3 p, WorldReaction world) => AroundSignal;
+}
+```
+
+The default `SampleThreat` counts nearby enemies via `Physics.OverlapSphere`; `SampleAround` weights
+`world.ActiveEvents` so that closer, bigger events count more.
+
+## Tuning — `TensionConfig`
+
+Strengths, radii, weights, speeds and thresholds are all data. Tune the ranges in your game.
+
+| Value | Meaning |
+|---|---|
+| `DamageGain` | Immediate spike on hit |
+| `ThreatGain` / `StressDecay` | Threat accumulation / stress decay |
+| `StressWeight` / `AroundWeight` | Weights when combining the two signals |
+| `RiseSpeed` / `FallSpeed` | Time constants for rising / falling |
+| `ThreatRadius` / `AroundRadius` | Sampling radii |

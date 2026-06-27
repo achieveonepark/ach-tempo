@@ -1,0 +1,28 @@
+---
+title: 変更履歴
+description: バージョンごとの主な変更点。
+---
+
+形式は [Keep a Changelog](https://keepachangelog.com/ja/1.0.0/)、バージョンは
+[Semantic Versioning](https://semver.org/lang/ja/) に従います。
+
+## 0.1.0 — 2026-06-27
+
+### 追加
+
+- **ワールドリアクション** (`Achieve.Tempo.World`): 平面格子で火・水・氷・電気がルール通り延焼する
+  `WorldReaction`、1マスの状態 `ElementalState`、素材 `Material`、表で持つ反応ルール
+  `ReactionRule`（`;` 区切りの1欄入力）、いま起きている事象 `ReactionHandle`。
+- **ディレクター** (`Achieve.Tempo.Director`): 既定方針を持ち virtual で拡張する `DirectorBrain`、
+  条件撒きアクション `SeedAction` と標準4種（`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`）、
+  局面遷移 `PhaseFsm`（ヒステリシス）。
+- **緊張度** (`Achieve.Tempo.Tension`): 2信号を合成して 0〜1 を出す `TensionModel`
+  （上がるときは速く・下がるときはゆっくり）。
+- **設定** (`Achieve.Tempo.Config`): コードと分離したデータセンター `DataService<T>` と
+  `TensionConfig`/`PhaseData`/`ActionData`/`RuleData`（既定値つき）。
+- **エディタツール** (`Achieve.Tempo.Editor`): ルール表をビルド前に検査する `RuleValidator`、
+  緊張度・局面をリアルタイムに見る `DebugWindow`。
+- **テスト**: EditMode（`TensionModel`/`PhaseFsm`/`ReactionRule`/`RuleValidator`）、
+  PlayMode（延焼方向・消火・事象の片付け）。
+- **サンプル**: `Samples~/BasicGrassFire` — 最も単純なひと回り。
+- **ドキュメント**: fumadocs サイト（ko/en/ja/zh）。

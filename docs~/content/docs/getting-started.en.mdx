@@ -1,0 +1,99 @@
+---
+title: Getting started
+description: Install the package and run your first loop.
+---
+
+## Requirements
+
+- Unity **2022.3** or newer
+- No external dependencies (`dependencies: {}`)
+
+## Install
+
+Unity Package Manager → **Add package from git URL**:
+
+```text
+https://github.com/achieveonepark/ach-tempo.git
+```
+
+Or directly in `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.achieve.tempo": "https://github.com/achieveonepark/ach-tempo.git"
+  }
+}
+```
+
+## Your first loop
+
+Attach this component to an empty `GameObject` and a grass fire starts spreading.
+
+```csharp
+using Achieve.Tempo.Director;
+using Achieve.Tempo.Tension;
+using Achieve.Tempo.World;
+using UnityEngine;
+
+public class TempoExample : MonoBehaviour
+{
+    WorldReaction _world;
+    DirectorBrain _director;
+    TensionModel  _tension;
+
+    void Start()
+    {
+        _world = new WorldReaction(width: 64, height: 64, cellSize: 1f, origin: transform.position);
+        _world.Fill("Grass");                       // lay down a grass field
+        _world.SetWind(new Vector2(1f, 0f), 1.2f);  // wind blowing east
+
+        _director = new DefaultDirectorBrain();
+        _tension  = new TensionModel();
+    }
+
+    void Update()
+    {
+        float dt = Time.deltaTime;
+        Vector3 player = transform.position;
+
+        // Always the same order: tension → director → world
+        _tension.Tick(player, _world, dt);
+        _director.Tick(_world, _tension, player, dt);
+        _world.Tick(dt);
+    }
+}
+```
+
+The order of the three `Tick` calls is **always** tension → director → world. The director reads this
+frame's tension and seeds conditions; the world picks them up and spreads.
+
+## Feeding damage into tension
+
+When the player is hit, spike the tension immediately.
+
+```csharp
+void OnDamaged(float dmg, float maxHp) => _tension.OnPlayerDamaged(dmg, maxHp);
+```
+
+## Swapping data
+
+Rule tables, actions and thresholds all live in data centers with built-in defaults, so it runs with no
+setup. To use your own values, just register them at startup.
+
+```csharp
+using Achieve.Tempo.Config;
+
+var rules = new RuleData();           // fill it yourself, or convert an SO loaded via Addressables
+DataService<RuleData>.Register(rules);
+```
+
+## Import the sample
+
+Package Manager → Tempo → **Samples** → *Basic Grass Fire*. Import it and the
+`BasicGrassFireDirector` component lets you watch tension, phase and spread on screen.
+
+## Next
+
+- [World reaction](/usage/world-reaction) for the spread rules in depth.
+- [Director](/usage/director) to customize phases and actions.

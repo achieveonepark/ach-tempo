@@ -1,0 +1,102 @@
+---
+title: Director
+description: Reads one tension number, picks a phase, and seeds only conditions within budget.
+---
+
+The director never spawns enemies. It reads a single tension number, picks a phase
+(build-up → peak → relax), and then, within its budget, picks actions that seed **only conditions** into the world.
+
+## One seed action — `SeedAction`
+
+```csharp
+public abstract class SeedAction
+{
+    public abstract float      Cost   { get; }  // how much budget it consumes
+    public abstract SeedIntent Intent { get; }  // Prepare / Trigger / Calm
+    public virtual  bool CanSeed(WorldReaction world, Vector3 playerPos) => true;
+    public abstract void Seed   (WorldReaction world, Vector3 playerPos);
+}
+```
+
+`Intent` ties to a phase — **Prepare** (build-up), **Trigger** (peak), **Calm** (relax). Each action
+first checks `CanSeed` ("is it OK to seed now?") and only calls the world's entry points
+(`ApplyElement` / `SetWind`).
+
+The four built-ins:
+
+| Action | Intent | Role |
+|---|---|---|
+| `DryUpwind` | Prepare | Raises and dries the wind to set up good spread (no fire yet) |
+| `IgniteUpwind` | Trigger | Throws an ember into dry grass upwind → it rides the wind toward the player |
+| `ChargeStorm` | Trigger | Floats a storm cloud over metal/puddles to shock |
+| `SummonRain` | Calm | Rains to quench and wet, giving a breather |
+
+## The director's brain — `DirectorBrain`
+
+```csharp
+public abstract class DirectorBrain
+{
+    public Phase CurrentPhase { get; }
+
+    // swap the action list per game (virtual, not an interface)
+    protected virtual IReadOnlyList<SeedAction> ActionPool
+        => DataService<ActionData>.GetDataCenter().Actions;
+
+    public void Tick(WorldReaction world, TensionModel tension, Vector3 playerPos, float dt)
+    {
+        Phase phase  = _fsm.Evaluate(tension.Current, dt);
+        float budget = DataService<PhaseData>.GetDataCenter().BudgetFor(phase);
+
+        foreach (SeedAction action in PickActions(phase, budget, world, playerPos))
+            action.Seed(world, playerPos);   // ★ seeds conditions, never spawns enemies
+    }
+
+    protected virtual IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos) { /* default policy */ }
+}
+```
+
+Use `DefaultDirectorBrain` to run with no overrides.
+
+## Phases and budget
+
+Each phase gives the director a different budget, declared in `PhaseData`.
+
+- **BuildUp** — stack only good-spread conditions (dry grass, charge, fuel). Small budget, nothing dangerous.
+- **Peak** — on top of what's stacked, throw an ember so it all goes up. Spend a lot.
+- **Relax** — rain to quench and catch a breath while budget recovers. Calming actions only.
+
+The default `PickActions` picks actions whose `Intent` matches the phase, within budget, that pass
+`CanSeed`. Override it when you need finer policy.
+
+```csharp
+public sealed class MyDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _myActions;
+
+    protected override IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos)
+    {
+        // game-specific priorities / cooldowns here
+        return base.PickActions(phase, budget, world, playerPos);
+    }
+}
+```
+
+## No flicker — `PhaseFsm`
+
+With a single threshold the phase flickers at the boundary. So the enter and exit thresholds differ
+(hysteresis), and a minimum relax time is guaranteed.
+
+```csharp
+case Phase.BuildUp:
+    if (tension >= Cfg.PeakEnter) _phase = Phase.Peak;              // e.g. 0.80
+    break;
+case Phase.Peak:
+    if (tension <= Cfg.RelaxEnter) { _phase = Phase.Relax; _relaxTimer = 0; } // e.g. 0.45
+    break;
+case Phase.Relax:
+    if (tension <= Cfg.BuildUpEnter && _relaxTimer >= Cfg.MinRelax)
+        _phase = Phase.BuildUp;                                     // minimum rest guaranteed
+    break;
+```

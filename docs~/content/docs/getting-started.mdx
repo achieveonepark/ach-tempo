@@ -1,0 +1,99 @@
+---
+title: 시작하기
+description: 설치하고, 한 바퀴 도는 흐름을 처음으로 가동합니다.
+---
+
+## 요구 사항
+
+- Unity **2022.3** 이상
+- 외부 의존성 없음 (`dependencies: {}`)
+
+## 설치
+
+Unity Package Manager → **Add package from git URL**:
+
+```text
+https://github.com/achieveonepark/ach-tempo.git
+```
+
+또는 `Packages/manifest.json` 에 직접:
+
+```json
+{
+  "dependencies": {
+    "com.achieve.tempo": "https://github.com/achieveonepark/ach-tempo.git"
+  }
+}
+```
+
+## 첫 한 바퀴
+
+빈 `GameObject` 에 아래 컴포넌트를 붙이면 풀밭에서 불이 번지기 시작합니다.
+
+```csharp
+using Achieve.Tempo.Director;
+using Achieve.Tempo.Tension;
+using Achieve.Tempo.World;
+using UnityEngine;
+
+public class TempoExample : MonoBehaviour
+{
+    WorldReaction _world;
+    DirectorBrain _director;
+    TensionModel  _tension;
+
+    void Start()
+    {
+        _world = new WorldReaction(width: 64, height: 64, cellSize: 1f, origin: transform.position);
+        _world.Fill("Grass");                       // 풀밭을 깐다
+        _world.SetWind(new Vector2(1f, 0f), 1.2f);  // 바람을 동쪽으로
+
+        _director = new DefaultDirectorBrain();
+        _tension  = new TensionModel();
+    }
+
+    void Update()
+    {
+        float dt = Time.deltaTime;
+        Vector3 player = transform.position;
+
+        // 항상 같은 순서: 긴장도 → 디렉터 → 월드
+        _tension.Tick(player, _world, dt);
+        _director.Tick(_world, _tension, player, dt);
+        _world.Tick(dt);
+    }
+}
+```
+
+세 개의 `Tick` 순서는 **반드시** 긴장도 → 디렉터 → 월드 입니다. 디렉터는 이번 프레임의 긴장도를 보고
+조건을 깔고, 월드는 그 조건을 받아 번집니다.
+
+## 피격을 긴장도에 반영하기
+
+플레이어가 맞으면 긴장도를 바로 끌어올립니다.
+
+```csharp
+void OnDamaged(float dmg, float maxHp) => _tension.OnPlayerDamaged(dmg, maxHp);
+```
+
+## 데이터 갈아끼우기
+
+규칙표·동작·기준값은 모두 데이터센터에 들어 있고, 기본값이 있어 설정 없이 동작합니다.
+자기 값을 쓰려면 시작할 때 등록만 하면 됩니다.
+
+```csharp
+using Achieve.Tempo.Config;
+
+var rules = new RuleData();           // 직접 채우거나 Addressables 로 불러온 SO 를 변환
+DataService<RuleData>.Register(rules);
+```
+
+## 예제 가져오기
+
+Package Manager → Tempo → **Samples** → *Basic Grass Fire* 를 Import 하면
+`BasicGrassFireDirector` 컴포넌트로 긴장도·국면·번짐을 눈으로 볼 수 있습니다.
+
+## 다음으로
+
+- [월드 반응](/usage/world-reaction)으로 번짐 규칙을 더 깊이 봅니다.
+- [디렉터](/usage/director)에서 국면과 동작을 커스터마이즈합니다.

@@ -1,0 +1,74 @@
+---
+title: API
+description: 外から見えるクラスとメンバーの一覧。
+---
+
+ゲーム側は通常 `DirectorBrain` を継承してアクション一覧だけ差し替え、3つの `Tick` を自分のループで呼びます。
+
+## `Achieve.Tempo.World`
+
+### `WorldReaction`
+
+| メンバー | シグネチャ | 説明 |
+|---|---|---|
+| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | いま起きている事象の一覧 |
+| `BurningCells` | `int` | 現在燃えているマス数 |
+| `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | 領域に要素を撒く |
+| `SetWind` | `(Vector2 dir, float strength)` | 風を設定 |
+| `Fill` / `SetCell` | `(string material)` / `(int x, int y, string material)` | 格子を敷く |
+| `GetCell` | `(int x, int y) → ElementalState` | マスの状態を読む |
+| `Tick` | `(float dt)` | 延焼＋一覧更新 |
+
+### 値型
+
+- `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
+- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
+- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`, `TargetMaterialList`, `MatchesMaterial`, static `Split`
+- `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
+- `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`
+
+## `Achieve.Tempo.Director`
+
+### `DirectorBrain` (abstract)
+
+| メンバー | シグネチャ | 説明 |
+|---|---|---|
+| `CurrentPhase` | `Phase` | 現在の局面 |
+| `Tick` | `(WorldReaction, TensionModel, Vector3 playerPos, float dt)` | 局面を決めて条件を撒く |
+| `ActionPool` | `virtual IReadOnlyList<SeedAction>` | アクション一覧（オーバーライド） |
+| `PickActions` | `virtual IEnumerable<SeedAction>` | アクション選択方針（オーバーライド） |
+| `MaxActiveEvents` | `virtual int` | 同時事象の上限 |
+
+- `DefaultDirectorBrain` — オーバーライドなしで使う既定実装。
+- `SeedAction` (abstract) — `Cost`, `Intent`, `CanSeed`, `Seed`。
+- 標準アクション: `DryUpwind`, `IgniteUpwind`, `ChargeStorm`, `SummonRain`。
+- `enum SeedIntent` — `Prepare, Trigger, Calm`。
+- `enum Phase` — `BuildUp, Peak, Relax`。
+- `PhaseFsm` — `Evaluate(float tension, float dt) → Phase`, `Current`, `Reset()`。
+
+## `Achieve.Tempo.Tension`
+
+### `TensionModel`
+
+| メンバー | シグネチャ | 説明 |
+|---|---|---|
+| `Current` | `float` | ディレクターが読む緊張度 0〜1 |
+| `PlayerStress` | `float` | プレイヤーのストレス 0〜1 |
+| `OnPlayerDamaged` | `(float dmg, float maxHp)` | 被弾時の即時上昇 |
+| `Tick` | `(Vector3 playerPos, WorldReaction, float dt)` | 緊張度を更新 |
+| `SampleThreat` | `protected virtual (Vector3) → float` | 脅威信号（差し替え可） |
+| `SampleAround` | `protected virtual (Vector3, WorldReaction) → float` | 周囲信号（差し替え可） |
+
+## `Achieve.Tempo.Config`
+
+- `DataService<T>` — `GetDataCenter()`, `Register(T)`, `Reset()`。
+- `TensionConfig` — 強さ・半径・重み・速度・しきい値。
+- `PhaseData` — `PeakEnter/RelaxEnter/BuildUpEnter/MinRelax`、局面ごとの予算、`BudgetFor(Phase)`。
+- `ActionData` — `Actions`, `Add(SeedAction)`。
+- `RuleData` — `Materials`, `Rules`, `ResolveMaterialId`, `GetMaterial`, `AddMaterial`, `AddRule`、延焼のしきい値。
+
+## `Achieve.Tempo.Editor`
+
+- `RuleValidator` — `Validate(RuleData) → List<Issue>`、メニュー `Tools/Tempo/Validate Rules`、ビルド前の自動検査。
+- `DebugWindow` — `Bind(TensionModel, DirectorBrain, WorldReaction)`、メニュー `Tools/Tempo/Debug Window`。

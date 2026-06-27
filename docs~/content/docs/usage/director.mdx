@@ -1,0 +1,101 @@
+---
+title: 디렉터
+description: 긴장도 하나를 보고 국면을 정해, 예산 안에서 조건만 까는 쪽.
+---
+
+디렉터는 적을 직접 만들지 않습니다. 긴장도 숫자 하나를 보고 국면(쌓기→터짐→쉬기)을 정한 뒤,
+쓸 수 있는 양(예산) 안에서 동작을 골라 월드에 **조건만** 깝니다.
+
+## 조건 깔기 한 종류 — `SeedAction`
+
+```csharp
+public abstract class SeedAction
+{
+    public abstract float      Cost   { get; }  // 예산을 얼마나 먹는지
+    public abstract SeedIntent Intent { get; }  // Prepare / Trigger / Calm
+    public virtual  bool CanSeed(WorldReaction world, Vector3 playerPos) => true;
+    public abstract void Seed   (WorldReaction world, Vector3 playerPos);
+}
+```
+
+`Intent` 가 국면과 연결됩니다 — **Prepare**(쌓기) · **Trigger**(터짐) · **Calm**(쉬기).
+각 동작은 `CanSeed` 로 "지금 깔아도 되나" 먼저 확인하고, 월드의 입구(`ApplyElement`/`SetWind`)만 부릅니다.
+
+기본 4종:
+
+| 동작 | Intent | 하는 일 |
+|---|---|---|
+| `DryUpwind` | Prepare | 바람을 세우고 말려, 곧 잘 번질 조건만 만든다(아직 불은 안 붙임) |
+| `IgniteUpwind` | Trigger | 바람 위쪽 마른 풀에 불씨를 던진다 → 바람 타고 플레이어 쪽으로 |
+| `ChargeStorm` | Trigger | 금속/물웅덩이 위에 번개구름을 띄워 감전 |
+| `SummonRain` | Calm | 비로 끄고 젖게 해 한숨 돌리게 함 |
+
+## 디렉터의 뇌 — `DirectorBrain`
+
+```csharp
+public abstract class DirectorBrain
+{
+    public Phase CurrentPhase { get; }
+
+    // 게임마다 동작 목록만 바꿔치기 (인터페이스 말고 virtual)
+    protected virtual IReadOnlyList<SeedAction> ActionPool
+        => DataService<ActionData>.GetDataCenter().Actions;
+
+    public void Tick(WorldReaction world, TensionModel tension, Vector3 playerPos, float dt)
+    {
+        Phase phase  = _fsm.Evaluate(tension.Current, dt);
+        float budget = DataService<PhaseData>.GetDataCenter().BudgetFor(phase);
+
+        foreach (SeedAction action in PickActions(phase, budget, world, playerPos))
+            action.Seed(world, playerPos);   // ★ 적을 만드는 게 아니라 조건만 깖
+    }
+
+    protected virtual IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos) { /* 기본 정책 */ }
+}
+```
+
+오버라이드 없이 바로 쓰려면 `DefaultDirectorBrain` 을 씁니다.
+
+## 국면과 예산
+
+국면마다 디렉터가 쓸 수 있는 양(예산)을 다르게 둡니다. `PhaseData` 에 적어둡니다.
+
+- **쌓기(BuildUp)** — 잘 탈 조건만 차곡차곡(마른 풀·전기·연료). 예산 적게, 위험하지 않은 것만.
+- **터짐(Peak)** — 쌓인 데다 불씨를 던져 와르르. 예산을 많이.
+- **쉬기(Relax)** — 비로 끄고 한숨 돌리며 예산을 회복. 끄는 동작만.
+
+기본 정책(`PickActions`)은 국면에 맞는 `Intent` 의 동작을 예산 안에서, 깔아도 되는 것만 고릅니다.
+세밀한 정책이 필요하면 오버라이드하세요.
+
+```csharp
+public sealed class MyDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _myActions;
+
+    protected override IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos)
+    {
+        // 우리 게임만의 우선순위/쿨다운 등을 여기서
+        return base.PickActions(phase, budget, world, playerPos);
+    }
+}
+```
+
+## 깜빡임 방지 — `PhaseFsm`
+
+기준이 하나면 경계에서 국면이 왔다 갔다 깜빡입니다. 그래서 **올리는 기준과 내리는 기준을 다르게**
+두고(히스테리시스), 최소한 쉬는 시간을 보장합니다.
+
+```csharp
+case Phase.BuildUp:
+    if (tension >= Cfg.PeakEnter) _phase = Phase.Peak;              // 예: 0.80
+    break;
+case Phase.Peak:
+    if (tension <= Cfg.RelaxEnter) { _phase = Phase.Relax; _relaxTimer = 0; } // 예: 0.45
+    break;
+case Phase.Relax:
+    if (tension <= Cfg.BuildUpEnter && _relaxTimer >= Cfg.MinRelax)
+        _phase = Phase.BuildUp;                                     // 최소 쉬는 시간 보장
+    break;
+```

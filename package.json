@@ -1,0 +1,26 @@
+{
+  "name": "com.achieve.tempo",
+  "version": "0.1.0",
+  "displayName": "Tempo",
+  "description": "디렉터가 조건만 깔면 월드가 받아서 상황을 키우는, 긴장 강약 자동 조절 시스템. (Left 4 Dead 식 자동 강약 조절 + Zelda BotW 식 요소 반응)",
+  "unity": "2022.3",
+  "keywords": [
+    "ai-director",
+    "emergent-gameplay",
+    "elemental-reaction",
+    "tension",
+    "tempo"
+  ],
+  "author": {
+    "name": "achieveonepark",
+    "url": "https://github.com/achieveonepark"
+  },
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Basic Grass Fire",
+      "description": "가장 단순한 한 바퀴 흐름 예제 (풀밭 위 불 번짐 + 디렉터 + 긴장도).",
+      "path": "Samples~/BasicGrassFire"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+---
+title: 안전장치
+description: 너무 커지지 않게 막고, 디렉터가 깐 조건은 꼭 전조로 보여주기.
+---
+
+월드는 디렉터도 예상 못 한 큰 연쇄를 만들 수 있습니다. 그래서 몇 가지 장치를 둡니다.
+
+## 1. 상한
+
+동시에 벌어지는 일의 개수/총 크기에 상한을 둡니다. 넘으면 새 불 붙이기(Trigger)를 잠시 막습니다.
+
+```csharp
+protected virtual int MaxActiveEvents => 48;
+
+// PickActions 안에서
+bool overloaded = world.ActiveEvents.Count >= MaxActiveEvents;
+if (overloaded && action.Intent == SeedIntent.Trigger) continue; // 새 불은 건너뜀
+```
+
+`WorldReaction.BurningCells` 로 지금 불타는 칸 수도 볼 수 있어, 더 강한 상한을 걸 수 있습니다.
+
+## 2. 쉬기 국면에선 끄기 먼저
+
+쉬기(Relax) 국면에선 `Intent == Calm` 동작(비·끄기)만 고릅니다. 기본 정책이 이미 이렇게 동작합니다.
+
+## 3. 발밑에서 터져도 살짝 봐주기
+
+디렉터가 깐 조건이 바로 발밑에서 터져 즉사하지 않도록, 플레이어 근처에는 위력을 줄이거나
+한 박자 늦추는 식으로 살짝 봐줍니다. (게임의 데미지 처리 쪽에서 거리 보정을 넣는 자리)
+
+## 4. 미리 신호 보여주기 (전조)
+
+가장 중요합니다. 디렉터가 깐 조건은 **꼭 전조를 보여줍니다** — 먹구름이 몰려오고, 바람이 말라갑니다.
+안 보여주면 플레이어는 '갑자기 왜 죽었지?' 합니다.
+
+- `DryUpwind` → 바람이 세지고 마르는 연출(풀 흔들림·소리).
+- `ChargeStorm` → 먹구름이 몰려오는 연출이 먼저.
+- `IgniteUpwind` → 멀리 바람 위쪽에서 작은 불씨/연기가 먼저 보이게.
+
+`DirectorBrain.CurrentPhase` 와 `WorldReaction.ActiveEvents` 를 읽어 전조 연출을 띄우세요.
+
+> **왜 중요한가:** 야숨은 '슬쩍 눈속임' 기법을 쓰면서도 보여줄 건 분명히 보여줬습니다.
+> 반대로 울티마 온라인의 자율 생태계는 플레이어가 알아채지 못해 실패했습니다.
+> **보여줄 건 분명히 보여줘야 합니다.**
+
+## 디버그로 확인하기
+
+에디터의 **Tools → Tempo → Debug Window** 로 긴장도 그래프·국면·벌어지는 일 개수·불타는 칸을
+실시간으로 봅니다. 게임 코드에서 다음처럼 연결합니다.
+
+```csharp
+#if UNITY_EDITOR
+Achieve.Tempo.Editor.DebugWindow.Bind(_tension, _director, _world);
+#endif
+```
+
+빌드 전에는 **Tools → Tempo → Validate Rules** (또는 자동 빌드 검사)로 규칙표의 없는 재질·
+서로 어긋나는 규칙을 잡습니다.

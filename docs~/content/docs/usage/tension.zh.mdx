@@ -1,0 +1,79 @@
+---
+title: 紧张度
+description: 把玩家威胁与周围活动合成为单个 0~1 数值的模型。
+---
+
+导演只看一个数：紧张度（0~1）。`TensionModel` 用三步生成它：
+**把两个信号归一到 0~1 → 合成 → 平滑。**
+
+## 三步
+
+1. **归一** —— 把玩家威胁与周围活动各自映射到 0~1。
+2. **合成** —— 任一项高，整体就上升；两项都高时接近最大（绝不超过 1）。公式为 `1-(1-a)(1-b)`。
+3. **平滑** —— 上升快、下降慢。危险要立刻感到，安心则缓慢到来。
+
+```csharp
+// 4) 合成：任一信号都能拉高；两者都高 → 接近最大（不超过 1）
+float a   = Mathf.Clamp01(_playerStress * Cfg.StressWeight);
+float b   = Mathf.Clamp01(around        * Cfg.AroundWeight);
+float raw = 1f - (1f - a) * (1f - b);
+
+// 5) 平滑：上升快，下降慢
+float speed = raw > _smoothed ? Cfg.RiseSpeed : Cfg.FallSpeed;
+float k = 1f - Mathf.Exp(-dt / Mathf.Max(1e-4f, speed));
+_smoothed = Mathf.Lerp(_smoothed, raw, k);
+```
+
+> **两种合成方式**
+> - 默认：`1-(1-a)(1-b)`。
+> - 更鲜明：取两者较大值 `Mathf.Max(a, b)`。
+>
+> **关键是「上升快、下降慢」。** 这样蓄势→爆发→喘息的节奏才自然。
+
+## 对外可见部分
+
+```csharp
+public class TensionModel
+{
+    public float Current { get; }          // 导演读取的值
+    public void OnPlayerDamaged(float dmg, float maxHp); // 受击瞬间拉高
+    public void Tick(Vector3 playerPos, WorldReaction world, float dt);
+}
+```
+
+## 受击即时，威胁渐进
+
+```csharp
+public void OnPlayerDamaged(float dmg, float maxHp)
+    => _playerStress = Mathf.Clamp01(_playerStress + dmg / maxHp * Cfg.DamageGain);
+```
+
+在 `Tick` 内，越近的威胁累积越多，并随时间逐渐回落。
+
+## 为测试注入信号
+
+两个采样方法是 `virtual`，因此测试可在没有物理场景的情况下直接注入信号（用于替换接口）。
+
+```csharp
+sealed class StubTensionModel : TensionModel
+{
+    public float ThreatSignal, AroundSignal;
+    protected override float SampleThreat(Vector3 p) => ThreatSignal;
+    protected override float SampleAround(Vector3 p, WorldReaction world) => AroundSignal;
+}
+```
+
+默认的 `SampleThreat` 用 `Physics.OverlapSphere` 统计周围敌人；`SampleAround` 会对
+`world.ActiveEvents` 加权，使越近、越大的事件计入越多。
+
+## 调参 — `TensionConfig`
+
+强度、半径、权重、速度、阈值全是数据。范围在你的游戏里调。
+
+| 值 | 含义 |
+|---|---|
+| `DamageGain` | 受击时的即时升幅 |
+| `ThreatGain` / `StressDecay` | 威胁累积 / 压力衰减 |
+| `StressWeight` / `AroundWeight` | 合成两信号时的权重 |
+| `RiseSpeed` / `FallSpeed` | 上升 / 下降的时间常数 |
+| `ThreatRadius` / `AroundRadius` | 采样半径 |

@@ -1,0 +1,49 @@
+---
+title: Overview
+description: An automatic tension-pacing system where the director only seeds conditions and the world grows the situation on its own.
+---
+
+## What Tempo does
+
+Tempo is a system that lets the game create crisis situations on its own. A **director** quietly
+seeds conditions — fire, rain, wind — and the **world reaction** layer picks them up and lets the
+situation grow, the way a fire spreads. You don't have to script every scene by hand; a different
+situation emerges every time.
+
+Two games inspired it:
+
+- **Left 4 Dead** — automatically adjusts the intensity (the tempo) of the action.
+- **The Legend of Zelda: BotW** — fire, water and electricity react with each other by fixed rules.
+
+> **Why "Tempo":** what this package ultimately does is adjust the game's tension *tempo* (its rise and fall).
+
+## The loop
+
+```text
+[Director]  ──seed conditions (fire/rain/wind/lightning)──▶  [World Reaction]
+   ▲                                                          │
+   │  receives tension back                                   │ computes results (spread/quench/charge)
+   │  (player threat + what's happening nearby)               ▼
+   └──────────────────  [Tension Model]  ◀── player threat / live events
+```
+
+Every frame the three parts run in the same order: **tension → director → world**.
+
+| Part | Class | Role |
+|---|---|---|
+| World reaction | `WorldReaction` | Spreads by rules on a grid; updates the list of live events |
+| Director | `DirectorBrain` | Reads tension, picks a phase, seeds conditions within budget |
+| Tension model | `TensionModel` | Combines player threat + nearby events into one 0–1 number |
+
+## Core principles
+
+1. **Split the two roles.** The world reaction has no idea the director exists. It only spreads by rules.
+2. **The director never spawns enemies.** It only seeds conditions (fire, rain, wind, storm clouds upstream).
+3. **The director watches one number** — tension (0–1): player threat combined with nearby events.
+4. **All the numbers live outside the code.** Rule tables, thresholds and weights are data a designer edits without code.
+
+## Next
+
+- [Getting started](/getting-started) — install and your first loop.
+- [World reaction](/usage/world-reaction) · [Director](/usage/director) · [Tension](/usage/tension) · [Safeguards](/usage/safeguards)
+- [API](/api) — the public surface, summarized.

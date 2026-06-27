@@ -1,0 +1,74 @@
+---
+title: API
+description: 对外可见的类与成员一览。
+---
+
+游戏侧通常继承 `DirectorBrain`，只替换动作列表，并在自己的循环里调用三个 `Tick`。
+
+## `Achieve.Tempo.World`
+
+### `WorldReaction`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `ActiveEvents` | `IReadOnlyList<ReactionHandle>` | 当前事件列表 |
+| `BurningCells` | `int` | 当前燃烧的格子数 |
+| `ApplyElement` | `(Vector3 pos, float radius, ElementTag e, float power)` | 向区域铺设要素 |
+| `SetWind` | `(Vector2 dir, float strength)` | 设置风 |
+| `Fill` / `SetCell` | `(string material)` / `(int x, int y, string material)` | 铺设网格 |
+| `GetCell` | `(int x, int y) → ElementalState` | 读取格子状态 |
+| `Tick` | `(float dt)` | 蔓延 + 刷新列表 |
+
+### 值类型
+
+- `ElementalState` (struct) — `MaterialId, Temperature, Wetness, Charge, OnFire, Frozen`
+- `ReactionHandle` (struct) — `Position, Magnitude, Ttl, Kind`
+- `Material` — `Name, Flammability, Conductivity, IgnitionPoint, FreezePoint, WaterAbsorption`
+- `ReactionRule` — `Trigger, TargetMaterials(;), Effect, Probability, Threshold`、`TargetMaterialList`、`MatchesMaterial`、静态 `Split`
+- `enum ElementTag` — `None, Fire, Water, Ice, Electric, Wind`
+- `enum StateEffect` — `Ignite, Extinguish, Wet, Dry, Freeze, Thaw, Charge, Discharge`
+
+## `Achieve.Tempo.Director`
+
+### `DirectorBrain` (abstract)
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `CurrentPhase` | `Phase` | 当前阶段 |
+| `Tick` | `(WorldReaction, TensionModel, Vector3 playerPos, float dt)` | 决定阶段并铺设条件 |
+| `ActionPool` | `virtual IReadOnlyList<SeedAction>` | 动作列表（可改写） |
+| `PickActions` | `virtual IEnumerable<SeedAction>` | 动作选择策略（可改写） |
+| `MaxActiveEvents` | `virtual int` | 同时事件上限 |
+
+- `DefaultDirectorBrain` — 无需改写即可使用的默认实现。
+- `SeedAction` (abstract) — `Cost`, `Intent`, `CanSeed`, `Seed`。
+- 内置动作：`DryUpwind`, `IgniteUpwind`, `ChargeStorm`, `SummonRain`。
+- `enum SeedIntent` — `Prepare, Trigger, Calm`。
+- `enum Phase` — `BuildUp, Peak, Relax`。
+- `PhaseFsm` — `Evaluate(float tension, float dt) → Phase`, `Current`, `Reset()`。
+
+## `Achieve.Tempo.Tension`
+
+### `TensionModel`
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `Current` | `float` | 导演读取的紧张度 0~1 |
+| `PlayerStress` | `float` | 玩家压力 0~1 |
+| `OnPlayerDamaged` | `(float dmg, float maxHp)` | 受击即时升幅 |
+| `Tick` | `(Vector3 playerPos, WorldReaction, float dt)` | 更新紧张度 |
+| `SampleThreat` | `protected virtual (Vector3) → float` | 威胁信号（可替换） |
+| `SampleAround` | `protected virtual (Vector3, WorldReaction) → float` | 周围信号（可替换） |
+
+## `Achieve.Tempo.Config`
+
+- `DataService<T>` — `GetDataCenter()`, `Register(T)`, `Reset()`。
+- `TensionConfig` — 强度、半径、权重、速度、阈值。
+- `PhaseData` — `PeakEnter/RelaxEnter/BuildUpEnter/MinRelax`、各阶段预算、`BudgetFor(Phase)`。
+- `ActionData` — `Actions`, `Add(SeedAction)`。
+- `RuleData` — `Materials`, `Rules`, `ResolveMaterialId`, `GetMaterial`, `AddMaterial`, `AddRule`、蔓延阈值。
+
+## `Achieve.Tempo.Editor`
+
+- `RuleValidator` — `Validate(RuleData) → List<Issue>`、菜单 `Tools/Tempo/Validate Rules`、构建前自动检查。
+- `DebugWindow` — `Bind(TensionModel, DirectorBrain, WorldReaction)`、菜单 `Tools/Tempo/Debug Window`。

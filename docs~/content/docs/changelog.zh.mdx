@@ -1,0 +1,27 @@
+---
+title: 更新日志
+description: 各版本的主要变更。
+---
+
+本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 与
+[语义化版本](https://semver.org/lang/zh-CN/)。
+
+## 0.1.0 — 2026-06-27
+
+### 新增
+
+- **世界反应** (`Achieve.Tempo.World`)：在扁平网格上按规则蔓延火/水/冰/电的 `WorldReaction`、
+  单格状态 `ElementalState`、材质 `Material`、以表驱动的反应规则 `ReactionRule`（`;` 分隔的单栏输入）、
+  当前事件 `ReactionHandle`。
+- **导演** (`Achieve.Tempo.Director`)：自带默认策略并以 virtual 扩展的 `DirectorBrain`、
+  铺设动作 `SeedAction` 及四个内置动作（`DryUpwind`/`IgniteUpwind`/`ChargeStorm`/`SummonRain`）、
+  阶段切换 `PhaseFsm`（迟滞）。
+- **紧张度** (`Achieve.Tempo.Tension`)：把两个信号合成为 0~1 的 `TensionModel`（上升快、下降慢）。
+- **配置** (`Achieve.Tempo.Config`)：与代码分离的数据中心 `DataService<T>` 及
+  `TensionConfig`/`PhaseData`/`ActionData`/`RuleData`（含默认值）。
+- **编辑器工具** (`Achieve.Tempo.Editor`)：构建前检查规则表的 `RuleValidator`、
+  实时查看紧张度/阶段的 `DebugWindow`。
+- **测试**：EditMode（`TensionModel`/`PhaseFsm`/`ReactionRule`/`RuleValidator`）、
+  PlayMode（蔓延方向、灭火、事件清理）。
+- **示例**：`Samples~/BasicGrassFire` —— 最简单的一轮循环。
+- **文档**：fumadocs 站点（ko/en/ja/zh）。

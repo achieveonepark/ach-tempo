@@ -1,0 +1,113 @@
+---
+title: ワールドリアクション
+description: 火・水・電気がルール通りに変化し、格子上で広がる側。
+---
+
+ワールドリアクションはディレクターの存在を一切知りません。条件が入ってくればルール通り広がり、
+「いま起きている事象」の一覧を更新するだけです。
+
+## 1マスの状態 — `ElementalState`
+
+マス（または物体）1つの現在の状態。格子で大量に処理するため軽い `struct` にします。
+
+```csharp
+public struct ElementalState
+{
+    public int   MaterialId;  // 素材レジストリのインデックス (-1 は空マス)
+    public float Temperature;
+    public float Wetness;     // 濡れ 0〜1
+    public float Charge;      // 帯電 0〜1
+    public bool  OnFire;
+    public bool  Frozen;
+}
+```
+
+「燃えやすさ・通電性・融点」のような **変わらない性質** は状態に書かず、`Material` から引きます。
+
+## 素材 — `Material`
+
+```csharp
+new Material("Grass", flammability: 0.9f, conductivity: 0.1f,
+             ignitionPoint: 220f, freezePoint: 0f, waterAbsorption: 0.7f);
+```
+
+素材は一度だけ登録し、インデックスで共有します。`RuleData.ResolveMaterialId(name)` が名前で探し、
+無ければ作って登録します。
+
+## 反応ルール — `ReactionRule`
+
+反応はコードではなく表（データ）に置きます。「この要素が／この素材に触れ／しきい値を超えたら → こう変わる」。
+
+```csharp
+[Serializable]
+public sealed class ReactionRule
+{
+    public ElementTag Trigger;         // 火/水/氷/電気/風
+    public string     TargetMaterials; // 1欄に区切り文字で: "Wood;Grass;Cloth"
+    public StateEffect Effect;         // Ignite / Extinguish / Wet / Freeze ...
+    public float      Probability;     // 0〜1
+    public float      Threshold;
+}
+```
+
+- 対象素材は **配列 UI ではなく `;` 区切りの1欄** に書きます（取り決め）。読み込み時に一度だけ分割して
+  キャッシュします。空にすると全素材が対象です。
+- BotW の3つの基本ルールを出発点にします。
+  1. 要素が **素材** を変える — 火が乾いた草を燃やす。
+  2. 要素が **別の要素** を変える — 水が火を消す。
+  3. 状況に応じて要素が **力** を生む — 電気が金属で感電を起こす。
+
+ルール表は `DataService<RuleData>.GetDataCenter()` で取得します。
+
+## 延焼と結果 — `WorldReaction`
+
+```csharp
+public class WorldReaction
+{
+    // ディレクターが読む部分
+    public IReadOnlyList<ReactionHandle> ActiveEvents { get; }
+
+    // ディレクターが条件を撒く入口
+    public void ApplyElement(Vector3 pos, float radius, ElementTag element, float power);
+    public void SetWind(Vector2 dir, float strength);
+
+    public void Tick(float dt); // ルール通り延焼＋一覧更新
+}
+```
+
+- **広がり方:** 平らな格子（`SortedSet` ではなく平面配列・`Dictionary`）でルールを適用し、隣のマスへ
+  燃え移らせます。風向き＋隣の燃えやすさに応じて毎フレーム広がります。
+- **`ActiveEvents`:** 1件が `ReactionHandle`（位置・大きさ・残り時間・種類）です。ディレクターと緊張度
+  モデルがこの一覧を見ます。終わった件は毎フレーム片付け、近くの同種は1件にまとめます。
+
+```csharp
+public struct ReactionHandle
+{
+    public Vector3    Position;
+    public float      Magnitude; // 大きさ（緊張度へ換算する際に使う）
+    public float      Ttl;       // 残り時間
+    public ElementTag Kind;
+}
+```
+
+## 格子を敷く
+
+```csharp
+var world = new WorldReaction(64, 64, cellSize: 1f, origin: transform.position);
+world.Fill("Grass");            // 全部草に
+world.SetCell(10, 12, "Water"); // 1マスだけ水たまり
+world.SetWind(new Vector2(1, 0), 1.2f);
+```
+
+## 直接条件を撒く
+
+```csharp
+world.ApplyElement(spot, radius: 2f, ElementTag.Fire, power: 1f);   // 火種
+world.ApplyElement(playerPos, radius: 14f, ElementTag.Water, 1f);   // 雨
+```
+
+`ApplyElement` は触れたマスに即座にルール表を適用し（水が触れればその場で消火）、その後 `Tick` が延焼を
+続けます。
+
+> 性能: 格子計算は Jobs/Burst + `NativeArray` とも好相性です。既定実装は依存なしで動くよう、管理された
+> 平面配列を使います。

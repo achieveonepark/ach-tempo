@@ -1,0 +1,57 @@
+---
+title: 安全装置
+description: 防止连锁过度膨胀，并且导演铺设的条件务必通过预兆呈现。
+---
+
+世界可能制造出连导演也没料到的大连锁。为此设置几道防线。
+
+## 1. 上限
+
+对同时发生的事件数量／总量设上限。超过后，暂时停止点新火（Trigger 动作）。
+
+```csharp
+protected virtual int MaxActiveEvents => 48;
+
+// 在 PickActions 内
+bool overloaded = world.ActiveEvents.Count >= MaxActiveEvents;
+if (overloaded && action.Intent == SeedIntent.Trigger) continue; // 跳过新火
+```
+
+`WorldReaction.BurningCells` 还能给出当前燃烧的格子数，可施加更严格的上限。
+
+## 2. 喘息阶段优先灭火
+
+在喘息（Relax）阶段只挑选 `Intent == Calm` 的动作（雨、灭火）。默认策略已经如此。
+
+## 3. 在脚下引爆也手下留情
+
+为避免导演铺设的条件正好在脚下引爆而秒杀玩家，在玩家附近降低威力或延后一拍，略作宽容。
+（在你的伤害处理中加入距离衰减的地方）
+
+## 4. 提前预告（预兆）
+
+最重要的一条。导演铺设的条件 **务必预告** —— 乌云压境、风渐干燥。
+否则玩家只会想「我怎么突然就死了？」
+
+- `DryUpwind` → 风势变强、变干的演出（草叶摇曳、声音）。
+- `ChargeStorm` → 先有乌云聚拢的演出。
+- `IgniteUpwind` → 先让远处上风向出现小火星／烟。
+
+读取 `DirectorBrain.CurrentPhase` 与 `WorldReaction.ActiveEvents` 来驱动你的预兆表现。
+
+> **为何重要：** 旷野之息用了「小小的障眼法」，但该让玩家看到的都清楚地呈现了。
+> 相反，网络创世纪（Ultima Online）的自治生态因玩家无从察觉而失败。
+> **该让人看到的，就要清楚地让人看到。**
+
+## 用调试工具查看
+
+用编辑器的 **Tools → Tempo → Debug Window** 实时观察紧张度曲线、阶段、事件数与燃烧格子。
+在游戏代码中接入：
+
+```csharp
+#if UNITY_EDITOR
+Achieve.Tempo.Editor.DebugWindow.Bind(_tension, _director, _world);
+#endif
+```
+
+构建前用 **Tools → Tempo → Validate Rules**（或自动构建检查）找出规则表中不存在的材质与相互冲突的规则。

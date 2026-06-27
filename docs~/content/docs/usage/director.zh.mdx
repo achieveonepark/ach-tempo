@@ -1,0 +1,100 @@
+---
+title: 导演
+description: 看一个紧张度数值决定阶段，在预算内只铺设条件的一侧。
+---
+
+导演从不直接生成敌人。它看一个紧张度数值，决定阶段（蓄势→爆发→喘息），再在可用量（预算）内
+挑选动作，向世界 **只铺设条件**。
+
+## 单个铺设动作 — `SeedAction`
+
+```csharp
+public abstract class SeedAction
+{
+    public abstract float      Cost   { get; }  // 消耗多少预算
+    public abstract SeedIntent Intent { get; }  // Prepare / Trigger / Calm
+    public virtual  bool CanSeed(WorldReaction world, Vector3 playerPos) => true;
+    public abstract void Seed   (WorldReaction world, Vector3 playerPos);
+}
+```
+
+`Intent` 与阶段绑定 —— **Prepare**（蓄势）、**Trigger**（爆发）、**Calm**（喘息）。
+每个动作先用 `CanSeed` 确认「现在能铺吗」，并只调用世界的入口（`ApplyElement`/`SetWind`）。
+
+四个内置动作：
+
+| 动作 | Intent | 职责 |
+|---|---|---|
+| `DryUpwind` | Prepare | 起风并烘干，营造易蔓延的条件（尚不点火） |
+| `IgniteUpwind` | Trigger | 向上风处的干草投下火种 → 顺风扑向玩家 |
+| `ChargeStorm` | Trigger | 在金属／水洼上空降下雷云引发触电 |
+| `SummonRain` | Calm | 降雨灭火并打湿，让玩家喘口气 |
+
+## 导演的大脑 — `DirectorBrain`
+
+```csharp
+public abstract class DirectorBrain
+{
+    public Phase CurrentPhase { get; }
+
+    // 每个游戏只替换动作列表（用 virtual，而非接口）
+    protected virtual IReadOnlyList<SeedAction> ActionPool
+        => DataService<ActionData>.GetDataCenter().Actions;
+
+    public void Tick(WorldReaction world, TensionModel tension, Vector3 playerPos, float dt)
+    {
+        Phase phase  = _fsm.Evaluate(tension.Current, dt);
+        float budget = DataService<PhaseData>.GetDataCenter().BudgetFor(phase);
+
+        foreach (SeedAction action in PickActions(phase, budget, world, playerPos))
+            action.Seed(world, playerPos);   // ★ 只铺设条件，绝不生成敌人
+    }
+
+    protected virtual IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos) { /* 默认策略 */ }
+}
+```
+
+要零改写直接使用，请用 `DefaultDirectorBrain`。
+
+## 阶段与预算
+
+每个阶段给导演不同的预算，写在 `PhaseData` 里。
+
+- **蓄势(BuildUp)** —— 只一点点堆叠易燃条件（干草、电、燃料）。预算小，只放不危险的。
+- **爆发(Peak)** —— 在堆叠之上投下火种，瞬间燎原。多花预算。
+- **喘息(Relax)** —— 降雨灭火、喘口气并恢复预算。只用灭火类动作。
+
+默认的 `PickActions` 会在预算内挑选 `Intent` 与阶段相符、且通过 `CanSeed` 的动作。
+需要更细的策略时再改写。
+
+```csharp
+public sealed class MyDirector : DirectorBrain
+{
+    protected override IReadOnlyList<SeedAction> ActionPool => _myActions;
+
+    protected override IEnumerable<SeedAction> PickActions(
+        Phase phase, float budget, WorldReaction world, Vector3 playerPos)
+    {
+        // 在此加入本游戏的优先级／冷却等
+        return base.PickActions(phase, budget, world, playerPos);
+    }
+}
+```
+
+## 防抖动 — `PhaseFsm`
+
+只有一个阈值时，阶段会在边界来回抖动。于是 **进入与退出用不同阈值**（迟滞），并保证最短喘息时间。
+
+```csharp
+case Phase.BuildUp:
+    if (tension >= Cfg.PeakEnter) _phase = Phase.Peak;              // 例: 0.80
+    break;
+case Phase.Peak:
+    if (tension <= Cfg.RelaxEnter) { _phase = Phase.Relax; _relaxTimer = 0; } // 例: 0.45
+    break;
+case Phase.Relax:
+    if (tension <= Cfg.BuildUpEnter && _relaxTimer >= Cfg.MinRelax)
+        _phase = Phase.BuildUp;                                     // 保证最短喘息时间
+    break;
+```

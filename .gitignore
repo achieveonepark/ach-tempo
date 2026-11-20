@@ -1,0 +1,3 @@
+# docs~ is a literal project directory, not a backup file.
+!docs~/
+!docs~/**

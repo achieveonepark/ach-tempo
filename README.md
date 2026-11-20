@@ -91,7 +91,7 @@ public class TempoExample : MonoBehaviour
 
 ## 문서
 
-전체 문서: `docs~/` (fumadocs). 한국어/English/日本語/中文.
+전체 문서: `docs~/` (Rspress). 한국어/English/日本語/中文.
 
 ## 라이선스
 

@@ -104,7 +104,7 @@ function createLocaleAliases() {
     fs.mkdirSync(aliasDirectory, { recursive: true });
     fs.writeFileSync(
       aliasPath,
-      `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${target}"><link rel="canonical" href="${target}"><title>Tempo</title></head><body><a href="${target}">계속하기</a></body></html>\n`,
+      `<!doctype html><html lang="ko"><head><meta charset="utf-8"><script>location.replace(${JSON.stringify(target)} + location.search + location.hash)</script><noscript><meta http-equiv="refresh" content="0;url=${target}"></noscript><link rel="canonical" href="${target}"><title>Tempo</title></head><body><a href="${target}">계속하기</a></body></html>\n`,
     );
   }
 }
